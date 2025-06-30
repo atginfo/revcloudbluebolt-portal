@@ -1,0 +1,19 @@
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 400px;
+}
+.bar-chart {
+    height: 100%;
+    width: 100%;
+}
+.right-aligned-container {
+  text-align: right; /* Aligns content to the right */
+}
+.slds-modal__container {
+    max-width: 50rem;
+    width: 100%;
+}
+.highlight-row {
+    background-color: orange !important;
+}
