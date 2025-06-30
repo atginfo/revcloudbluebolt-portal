@@ -2,8 +2,8 @@
   @description       : 
   @author            : David Sam
   @group             : Cognizant
-  @last modified on  : 06-13-2025
-  @last modified by  : David Sam
+  @last modified on  : 06-30-2025
+  @last modified by  : Frank Berni
 -->
 
 <template>
@@ -67,9 +67,9 @@
     <lightning-button icon-name="utility:expand_alt" variant="container" label={expandCollapseLabel} onclick={toggleExpandCollapseAll}></lightning-button>
     <div class="slds-size_1-of-3" style="width: 50%">
       <div class="right-aligned-container">
-      <lightning-input type="date" name="assetDate" label="Asset validity Date" value={validityDate}
-        date-style="short" field-level-help="Select the asset validity date to display. The default is today."
-        variant="label-inline" onchange={handleInputChange}>
+      <!-- NEW updated label and removed tooltip -->
+      <lightning-input type="date" name="assetDate" label="View Products and Quantities as of" value={validityDate}
+        date-style="short" variant="label-inline" onchange={handleInputChange}>
       </lightning-input>
       </div>
     </div>
