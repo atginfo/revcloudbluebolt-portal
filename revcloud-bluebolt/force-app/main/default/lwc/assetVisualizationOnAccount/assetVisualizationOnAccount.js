@@ -3,8 +3,8 @@
  * @author            : David Sam
  * @group             : Cognizant
  * @ticket            : CIBGCF-34
- * @last modified on  : 06-13-2025
- * @last modified by  : David Sam
+ * @last modified on  : 06-30-2025
+ * @last modified by  : Frank Berni
 **/
 import { LightningElement, track, wire, api } from 'lwc';
 import charjsv1 from '@salesforce/resourceUrl/charjsv1';
@@ -36,23 +36,26 @@ import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
             // cellAttributes: {
             //     class: 'slds-text-color_success slds-text-title_caps',
             // },
-            initialWidth: 200,
+            // NEW increase width to 300
+            initialWidth: 300,
         },
-        {
-            type: "text",
-            fieldName: 'AssetId',
-            label: "Asset Id", 
-            sortable: true,  
-            // cellAttributes: {
-            //     iconName: 'utility:asset',
-            //     iconAlternativeText: 'Asset Id',
-            // },
-            initialWidth: 240,
-        },
+        // NEW Commented out Asset Id column
+        // {
+        //     type: "text",
+        //     fieldName: 'AssetId',
+        //     label: "Asset Id", 
+        //     sortable: true,  
+        //     // cellAttributes: {
+        //     //     iconName: 'utility:asset',
+        //     //     iconAlternativeText: 'Asset Id',
+        //     // },
+        //     initialWidth: 240,
+        // },
         {
             type: "currency",
             fieldName: 'Mrr',
-            label: "Amount",
+            // NEW Updated label name
+            label: "Recurring Amount",
             sortable: true,
             cellAttributes: {
                 // iconName: 'utility:money',
@@ -63,7 +66,8 @@ import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
                 currencyCode: 'USD',
                 minimumFractionDigits: 2,
             },
-            initialWidth: 120,
+            // NEW increase width to 200
+            initialWidth: 200,
         },
         {
             type: "text",
@@ -77,14 +81,20 @@ import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
             initialWidth: 160,
         },
         { 
-            type: "date",
+            // NEW updated type to date-local, keeps date more absolute based on current time zone
+            type: "date-local",
             fieldName: 'StartDate',
             label: "Start Date",
             sortable: true,
             initialWidth: 160,
+            cellAttributes: {
+                iconName: 'utility:event',
+                iconAlternativeText: 'Start Date',
+            },
         },
         { 
-            type: "date",
+            // NEW updated type to date-local, keeps date more absolute based on current time zone
+            type: "date-local",
             fieldName: 'EndDate',
             label: "End Date",
             sortable: true,
@@ -120,7 +130,7 @@ import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
         { label: 'Amend', name: 'amend' }
     ];
 
-  //----------------------------------------------------------------------------------------
+  
 
   function isDateInRange(date, start, end) {
     if (!date || !start || !end) return false;
@@ -147,7 +157,8 @@ export default class AssetVisualizationOnAccount extends LightningElement {
     @track _originalGridData = [];
     @track expandCollapseLabel = 'Expand All';
     @track validityDate = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
-    @track dynamicTitle = "Asset and Asset State Period Detail as of " + this.validityDate;
+    // NEW Updated title
+    @track dynamicTitle = "My Current Assets as of " + this.validityDate;
     flowApiName = "Clone_Amend_Renew_and_Cancel_Assets";
     @track recentlyUpdatedAssetId; // Add this tracked property
     renderFlow = false;
@@ -193,7 +204,8 @@ export default class AssetVisualizationOnAccount extends LightningElement {
         function mapAssetFields(asset) {
             return {
                 AssetId: asset.Id,
-                Name: asset.Name + ' -- ',
+                // NEW remove '--' at end of Name
+                Name: asset.Name,
                 Mrr: asset.Mrr || null,
                 Billing_Frequency2__c: asset.Billing_Frequency2__c || '',
                 StartDate: asset.StartDate || null,
@@ -281,7 +293,8 @@ export default class AssetVisualizationOnAccount extends LightningElement {
     // Handler for date input change
     handleInputChange(event) {
         this.validityDate = event.target.value;
-        this.dynamicTitle = "Asset and Asset State Period Detail as of " + this.validityDate;
+        // NEW Updated title
+        this.dynamicTitle = "My Current Assets as of " + this.validityDate;
         return refreshApex(this.wiredAssetsResult);
         
     }
