@@ -33,6 +33,7 @@ import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
             fieldName: 'Name',
             label: "Asset Name",   
             sortable: true,
+            wrapText: "true",
             // cellAttributes: {
             //     class: 'slds-text-color_success slds-text-title_caps',
             // },
@@ -57,6 +58,7 @@ import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
             // NEW Updated label name
             label: "Recurring Amount",
             sortable: true,
+            wrapText: "true",
             cellAttributes: {
                 // iconName: 'utility:money',
                 // iconAlternativeText: 'Monthly Recurring Revenue',
@@ -74,6 +76,7 @@ import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
             fieldName: 'Billing_Frequency2__c',
             label: "Billing Frequency", 
             sortable: true,  
+            wrapText: "true",
             cellAttributes: {
                 iconName: 'utility:clock',
                 iconAlternativeText: 'Billing Frequency',
@@ -157,8 +160,8 @@ export default class AssetVisualizationOnAccount extends LightningElement {
     @track _originalGridData = [];
     @track expandCollapseLabel = 'Expand All';
     @track validityDate = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
-    // NEW Updated title
-    @track dynamicTitle = "My Current Assets as of " + this.validityDate;
+    // NEW Commented out and added getter instead
+    // @track dynamicTitle = "My Current Assets as of " + this.validityDate;
     flowApiName = "Clone_Amend_Renew_and_Cancel_Assets";
     @track recentlyUpdatedAssetId; // Add this tracked property
     renderFlow = false;
@@ -203,7 +206,8 @@ export default class AssetVisualizationOnAccount extends LightningElement {
         // Helper to map asset to grid fields (if no valid ASP)
         function mapAssetFields(asset) {
             return {
-                AssetId: asset.Id,
+                // NEW updated to Id instead of AssetId
+                Id: asset.Id,
                 // NEW remove '--' at end of Name
                 Name: asset.Name,
                 Mrr: asset.Mrr || null,
@@ -222,16 +226,26 @@ export default class AssetVisualizationOnAccount extends LightningElement {
                 try { asp = JSON.parse(asp); } catch { asp = []; }
             }
             asp = asp || [];
-            // Filter AssetStatePeriods by validityDate
-            const aspFiltered = asp.filter(sp =>
-                isDateInRange(selectedDate, sp.StartDate, sp.EndDate)
-            );
-            // If there is a valid AssetStatePeriod, merge its fields into the asset row
+            const aspFiltered = asp.filter(sp => isDateInRange(selectedDate, sp.StartDate, sp.EndDate));
+            
             if (aspFiltered.length > 0) {
                 assetMap[asset.Id] = mergeStatePeriodFields(mapAssetFields(asset), aspFiltered[0]);
             } else {
-                assetMap[asset.Id] = null; // Exclude assets with no valid ASP
+                assetMap[asset.Id] = null;
             }
+
+            
+
+            // Filter AssetStatePeriods by validityDate
+            // const aspFiltered = asp.filter(sp =>
+            //     isDateInRange(selectedDate, sp.StartDate, sp.EndDate)
+            // );
+            // // If there is a valid AssetStatePeriod, merge its fields into the asset row
+            // if (aspFiltered.length > 0) {
+            //     assetMap[asset.Id] = mergeStatePeriodFields(mapAssetFields(asset), aspFiltered[0]);
+            // } else {
+            //     assetMap[asset.Id] = null; // Exclude assets with no valid ASP
+            // }
         });
 
         // Build bundles and track parent/child relationships
@@ -255,6 +269,14 @@ export default class AssetVisualizationOnAccount extends LightningElement {
                         }
                     });
                 }
+            }
+        });
+
+        Object.keys(assetMap).forEach(id => {
+            const asset = assetMap[id];
+            if (asset && (!asset._children || asset._children.length === 0)) {
+                // Remove the _children property if empty
+                delete asset._children;
             }
         });
 
@@ -293,8 +315,8 @@ export default class AssetVisualizationOnAccount extends LightningElement {
     // Handler for date input change
     handleInputChange(event) {
         this.validityDate = event.target.value;
-        // NEW Updated title
-        this.dynamicTitle = "My Current Assets as of " + this.validityDate;
+        // NEW Commented out and added getter instead
+        // this.dynamicTitle = "My Current Assets as of " + this.validityDate;
         return refreshApex(this.wiredAssetsResult);
         
     }
@@ -312,24 +334,33 @@ toggleExpandCollapseAll() {
     function collectKeys(nodes) {
         if (!Array.isArray(nodes)) return; // <-- Prevents undefined errors
         nodes.forEach(node => {
-            if (node && node.Name) {
-                allKeys.push(node.Name);
+            // if (node && node.Name) {
+            //     allKeys.push(node.Name);
+            // }
+            // NEW Updated to use Id instead of Name
+            if (node && node.Id) {
+                allKeys.push(node.Id);
             }
             if (node && Array.isArray(node._children) && node._children.length > 0) {
                 collectKeys(node._children);
             }
         });
     }
-    collectKeys(Array.isArray(this.gridData) ? this.gridData : []);
+    // collectKeys(Array.isArray(this.gridData) ? this.gridData : []);
+    // NEW using collectKeys on gridData and isFullyExpanded boolean to keep track of status of tree-grid
+    collectKeys(this.gridData);
+    const isFullyExpanded = this.expandedRows.length === allKeys.length && allKeys.every(id => this.expandedRows.includes(id));
+    this.expandedRows = isFullyExpanded ? [] : allKeys;
+    this.expandCollapseLabel = isFullyExpanded ? 'Expand All' : 'Collapse All';
 
         // Toggle logic
-        if (this.expandedRows.length === allKeys.length && allKeys.length > 0) {
-            this.expandedRows = [];
-            this.expandCollapseLabel = 'Expand All';
-        } else {
-            this.expandedRows = allKeys;
-            this.expandCollapseLabel = 'Collapse All';
-        }
+        // if (this.expandedRows.length === allKeys.length && allKeys.length > 0) {
+        //     this.expandedRows = [];
+        //     this.expandCollapseLabel = 'Expand All';
+        // } else {
+        //     this.expandedRows = allKeys;
+        //     this.expandCollapseLabel = 'Collapse All';
+        // }
     }
 
     doSorting(event) {
@@ -392,7 +423,9 @@ handleRowAction(event) {
     });
 
     if (actionName === 'add' || actionName === 'amend') {
-        this.selectedAssetId = row.AssetId;
+        // this.selectedAssetId = row.AssetId;
+        // NEW replaced with row.Id
+        this.selectedAssetId = row.Id;
         console.log('Selected AssetId: ' + this.selectedAssetId);
         // Launch the flow, passing AssetId and other necessary variables
         this.flowApiName = "Clone_Amend_Renew_and_Cancel_Assets";
@@ -494,6 +527,11 @@ handleFinish(event) {
 
 closeModal() {
     this.renderFlow = false;
+}
+
+// NEW added getter for title 
+get dynamicTitle() {
+    return `My Current Assets as of ${this.validityDate}`;
 }
 
 get gridDataWithHighlight() {

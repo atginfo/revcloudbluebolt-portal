@@ -61,7 +61,7 @@
 
 <div>
 
-  <lightning-card title= {dynamicTitle}
+  <lightning-card title={dynamicTitle}
     icon-name="custom:custom17" class="slds-m-around_medium">
    
     <lightning-button icon-name="utility:expand_alt" variant="container" label={expandCollapseLabel} onclick={toggleExpandCollapseAll}></lightning-button>
@@ -83,6 +83,7 @@
       max-row-selection="1"
       key-field="Name">
     </lightning-tree-grid> -->
+    <!-- NEW updated key-field to use Id -->
     <lightning-tree-grid  
       data={gridDataWithHighlight}
       columns={columns}
@@ -91,7 +92,7 @@
       onrowselection={handleRowSelection}
       onrowaction={handleRowAction}
       max-row-selection="1"
-      key-field="Name"
+      key-field="Id"
       row-class={rowClass}>
     </lightning-tree-grid>
 
