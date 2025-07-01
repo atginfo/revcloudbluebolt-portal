@@ -3,22 +3,24 @@
  * @author            : David Sam
  * @group             : Cognizant
  * @ticket            : CIBGCF-34
- * @last modified on  : 06-13-2025
- * @last modified by  : David Sam
+ * @last modified on  : 07-01-2025
+ * @last modified by  : Frank Berni
 **/
 import { LightningElement, track, wire, api } from 'lwc';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import Id from '@salesforce/user/Id'; // Get the current userId
+import { refreshApex } from '@salesforce/apex';
+import getAssetAndReletionships from '@salesforce/apex/AssetVisualizationOnAccount_lwc.getAssetAndReletionships';
+
+// Unused imports
 import charjsv1 from '@salesforce/resourceUrl/charjsv1';
 import { loadScript } from 'lightning/platformResourceLoader'; // Load the chart.js library as a static resource from Salesforce
-import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getAssetAmountDetails from '@salesforce/apex/AssetVisualizationOnAccount_lwc.getAssetAmountDetails';
-import Id from '@salesforce/user/Id'; // Get the current userId
 import getAssetsList from '@salesforce/apex/AssetVisualizationOnAccount_lwc.getAssetsList';
-import { refreshApex } from '@salesforce/apex';
 import { RefreshEvent } from "lightning/refresh";
 import LightningPrompt from 'lightning/prompt';
 import getAssetAndRelatedAssets from '@salesforce/apex/AssetVisualizationOnAccount_lwc.getAssetAndRelatedAssets';
 import getAssets from '@salesforce/apex/AssetVisualizationOnAccount_lwc.getAssets';
-import getAssetAndReletionships from '@salesforce/apex/AssetVisualizationOnAccount_lwc.getAssetAndReletionships';
 import StartDate from '@salesforce/schema/Contract.StartDate';
 import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
 
@@ -33,43 +35,34 @@ import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
             fieldName: 'Name',
             label: "Asset Name",   
             sortable: true,
-            // cellAttributes: {
-            //     class: 'slds-text-color_success slds-text-title_caps',
-            // },
-            initialWidth: 200,
+            wrapText: "true",
+            // NEW increase width to 300
+            initialWidth: 300,
         },
-        {
-            type: "text",
-            fieldName: 'AssetId',
-            label: "Asset Id", 
-            sortable: true,  
-            // cellAttributes: {
-            //     iconName: 'utility:asset',
-            //     iconAlternativeText: 'Asset Id',
-            // },
-            initialWidth: 240,
-        },
+        // NEW Removed Asset Id column
         {
             type: "currency",
             fieldName: 'Mrr',
-            label: "Amount",
+            // NEW Updated label name
+            label: "Recurring Amount",
             sortable: true,
+            wrapText: "true",
             cellAttributes: {
-                // iconName: 'utility:money',
-                // iconAlternativeText: 'Monthly Recurring Revenue',
                 class: 'amount-cell'
             },
             typeAttributes: {
                 currencyCode: 'USD',
                 minimumFractionDigits: 2,
             },
-            initialWidth: 120,
+            // NEW increase width to 200
+            initialWidth: 200,
         },
         {
             type: "text",
             fieldName: 'Billing_Frequency2__c',
             label: "Billing Frequency", 
             sortable: true,  
+            wrapText: "true",
             cellAttributes: {
                 iconName: 'utility:clock',
                 iconAlternativeText: 'Billing Frequency',
@@ -77,14 +70,20 @@ import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
             initialWidth: 160,
         },
         { 
-            type: "date",
+            // NEW updated type to date-local, keeps date more absolute based on current time zone
+            type: "date-local",
             fieldName: 'StartDate',
             label: "Start Date",
             sortable: true,
             initialWidth: 160,
+            cellAttributes: {
+                iconName: 'utility:event',
+                iconAlternativeText: 'Start Date',
+            },
         },
         { 
-            type: "date",
+            // NEW updated type to date-local, keeps date more absolute based on current time zone
+            type: "date-local",
             fieldName: 'EndDate',
             label: "End Date",
             sortable: true,
@@ -120,7 +119,7 @@ import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
         { label: 'Amend', name: 'amend' }
     ];
 
-  //----------------------------------------------------------------------------------------
+  
 
   function isDateInRange(date, start, end) {
     if (!date || !start || !end) return false;
@@ -128,7 +127,7 @@ import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
     return d >= new Date(start) && d <= new Date(end);
 }
 
-// TODO: use spread operator to set the default values or track the values from the javascript or use a function
+// use spread operator to set the default values or track the values from the javascript or use a function
 //          ie: this.object = {...this.setDefaultValues(), "objectPropertyToBeTracked":event.target.value},;
 export default class AssetVisualizationOnAccount extends LightningElement {
 
@@ -147,7 +146,7 @@ export default class AssetVisualizationOnAccount extends LightningElement {
     @track _originalGridData = [];
     @track expandCollapseLabel = 'Expand All';
     @track validityDate = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
-    @track dynamicTitle = "Asset and Asset State Period Detail as of " + this.validityDate;
+    // NEW Removed track variable for dynamicTitle added getter instead
     flowApiName = "Clone_Amend_Renew_and_Cancel_Assets";
     @track recentlyUpdatedAssetId; // Add this tracked property
     renderFlow = false;
@@ -158,13 +157,12 @@ export default class AssetVisualizationOnAccount extends LightningElement {
     
     @track gridData = [];
 
+    //===========================================================
+    @track expandCollapseLabel = 'Expand All';
+    // ...existing code...
 
-//===========================================================
- @track expandCollapseLabel = 'Expand All';
-// ...existing code...
-
- // Wire method with parameters
-    @wire(getAssetAndReletionships, { userId: '$currentUserId', assetValidityDate: '$validityDate' })
+    // Wire method with parameters
+   @wire(getAssetAndReletionships, { userId: '$currentUserId', assetValidityDate: '$validityDate' })
    wiredAssets(result) {
     this.wiredAssetsResult = result;
     if (result.data) {
@@ -192,8 +190,10 @@ export default class AssetVisualizationOnAccount extends LightningElement {
         // Helper to map asset to grid fields (if no valid ASP)
         function mapAssetFields(asset) {
             return {
-                AssetId: asset.Id,
-                Name: asset.Name + ' -- ',
+                // NEW updated to Id instead of AssetId
+                Id: asset.Id,
+                // NEW remove '--' at end of Name
+                Name: asset.Name,
                 Mrr: asset.Mrr || null,
                 Billing_Frequency2__c: asset.Billing_Frequency2__c || '',
                 StartDate: asset.StartDate || null,
@@ -210,15 +210,12 @@ export default class AssetVisualizationOnAccount extends LightningElement {
                 try { asp = JSON.parse(asp); } catch { asp = []; }
             }
             asp = asp || [];
-            // Filter AssetStatePeriods by validityDate
-            const aspFiltered = asp.filter(sp =>
-                isDateInRange(selectedDate, sp.StartDate, sp.EndDate)
-            );
-            // If there is a valid AssetStatePeriod, merge its fields into the asset row
+            const aspFiltered = asp.filter(sp => isDateInRange(selectedDate, sp.StartDate, sp.EndDate));
+            
             if (aspFiltered.length > 0) {
                 assetMap[asset.Id] = mergeStatePeriodFields(mapAssetFields(asset), aspFiltered[0]);
             } else {
-                assetMap[asset.Id] = null; // Exclude assets with no valid ASP
+                assetMap[asset.Id] = null;
             }
         });
 
@@ -243,6 +240,14 @@ export default class AssetVisualizationOnAccount extends LightningElement {
                         }
                     });
                 }
+            }
+        });
+
+        Object.keys(assetMap).forEach(id => {
+            const asset = assetMap[id];
+            if (asset && (!asset._children || asset._children.length === 0)) {
+                // Remove the _children property if empty
+                delete asset._children;
             }
         });
 
@@ -281,9 +286,7 @@ export default class AssetVisualizationOnAccount extends LightningElement {
     // Handler for date input change
     handleInputChange(event) {
         this.validityDate = event.target.value;
-        this.dynamicTitle = "Asset and Asset State Period Detail as of " + this.validityDate;
-        return refreshApex(this.wiredAssetsResult);
-        
+        return refreshApex(this.wiredAssetsResult); 
     }
 
     handleRowSelection(event) {
@@ -291,244 +294,202 @@ export default class AssetVisualizationOnAccount extends LightningElement {
         this.selectedAssetId = selectedRows.length > 0 ? selectedRows[0].AssetId : null;
     }
 
-// ...existing code...
-
-toggleExpandCollapseAll() {
-    // Collect all keys (using Name as key-field)
-    const allKeys = [];
-    function collectKeys(nodes) {
-        if (!Array.isArray(nodes)) return; // <-- Prevents undefined errors
-        nodes.forEach(node => {
-            if (node && node.Name) {
-                allKeys.push(node.Name);
-            }
-            if (node && Array.isArray(node._children) && node._children.length > 0) {
-                collectKeys(node._children);
-            }
-        });
-    }
-    collectKeys(Array.isArray(this.gridData) ? this.gridData : []);
-
-        // Toggle logic
-        if (this.expandedRows.length === allKeys.length && allKeys.length > 0) {
-            this.expandedRows = [];
-            this.expandCollapseLabel = 'Expand All';
-        } else {
-            this.expandedRows = allKeys;
-            this.expandCollapseLabel = 'Collapse All';
+    toggleExpandCollapseAll() {
+        // Collect all keys (using Name as key-field)
+        const allKeys = [];
+        function collectKeys(nodes) {
+            if (!Array.isArray(nodes)) return; // <-- Prevents undefined errors
+            
+            nodes.forEach(node => {
+                // NEW Updated to use Id instead of Name
+                if (node && node.Id) {
+                    allKeys.push(node.Id);
+                }
+                if (node && Array.isArray(node._children) && node._children.length > 0) {
+                    collectKeys(node._children);
+                }
+            });
         }
+
+        // NEW using collectKeys on gridData and isFullyExpanded boolean to keep track of status of tree-grid
+        collectKeys(this.gridData);
+        const isFullyExpanded = this.expandedRows.length === allKeys.length && allKeys.every(id => this.expandedRows.includes(id));
+        this.expandedRows = isFullyExpanded ? [] : allKeys;
+        this.expandCollapseLabel = isFullyExpanded ? 'Expand All' : 'Collapse All';
+
     }
 
     doSorting(event) {
-    const fieldName = event.detail.fieldName;
-    let sortDirection = 'asc';
+        const fieldName = event.detail.fieldName;
+        let sortDirection = 'asc';
 
-    // Toggle sort direction if the same column is clicked
-    if (this.sortBy === fieldName) {
-        sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
-    }
-
-    this.sortBy = fieldName;
-    this.sortDirection = sortDirection;
-    this.sortData(this.sortBy, this.sortDirection);
-}
-
-sortData(fieldname, direction) {
-    // Deep copy to avoid mutating original data
-    let parseData = JSON.parse(JSON.stringify(this.gridData));
-    // Helper to sort recursively
-    function sortRecursive(data) {
-        data.sort((a, b) => {
-            let x = a[fieldname] || '';
-            let y = b[fieldname] || '';
-            if (typeof x === 'string') x = x.toLowerCase();
-            if (typeof y === 'string') y = y.toLowerCase();
-            return direction === 'asc' ? (x > y ? 1 : x < y ? -1 : 0) : (x < y ? 1 : x > y ? -1 : 0);
-        });
-        data.forEach(item => {
-            if (item._children && item._children.length > 0) {
-                sortRecursive(item._children);
-            }
-        });
-    }
-    sortRecursive(parseData);
-    this.gridData = parseData;
-}
-
-getRowActions(row, doneCallback) {
-    console.log('getRowActions called for row: ' );
-    console.log('getRowActions called for row: ' + JSON.stringify(row));
-    const actions = [
-        { 
-            label: 'Amend', name: 'amend'
+        // Toggle sort direction if the same column is clicked
+        if (this.sortBy === fieldName) {
+            sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
         }
-    ];
-    doneCallback(actions);
-}
 
-@api
-flowInputVariables = [];
+        this.sortBy = fieldName;
+        this.sortDirection = sortDirection;
+        this.sortData(this.sortBy, this.sortDirection);
+    }
 
-handleRowAction(event) {
-    const actionName = event.detail.action.name;
-    const row = event.detail.row;
-    const formatter = new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    });
+    sortData(fieldname, direction) {
+        // Deep copy to avoid mutating original data
+        let parseData = JSON.parse(JSON.stringify(this.gridData));
+        // Helper to sort recursively
+        function sortRecursive(data) {
+            data.sort((a, b) => {
+                let x = a[fieldname] || '';
+                let y = b[fieldname] || '';
+                if (typeof x === 'string') x = x.toLowerCase();
+                if (typeof y === 'string') y = y.toLowerCase();
+                return direction === 'asc' ? (x > y ? 1 : x < y ? -1 : 0) : (x < y ? 1 : x > y ? -1 : 0);
+            });
+            data.forEach(item => {
+                if (item._children && item._children.length > 0) {
+                    sortRecursive(item._children);
+                }
+            });
+        }
+        sortRecursive(parseData);
+        this.gridData = parseData;
+    }
 
-    if (actionName === 'add' || actionName === 'amend') {
-        this.selectedAssetId = row.AssetId;
-        console.log('Selected AssetId: ' + this.selectedAssetId);
-        // Launch the flow, passing AssetId and other necessary variables
-        this.flowApiName = "Clone_Amend_Renew_and_Cancel_Assets";
-        // this.recordIds = this.selectedAssetId;
-        // this.actionType = 'Amend';
-        console.log('Flow Input Variables: 123 - Date: ' );
-        this.flowInputVariables = [
+    getRowActions(row, doneCallback) {
+        console.log('getRowActions called for row: ' );
+        console.log('getRowActions called for row: ' + JSON.stringify(row));
+        const actions = [
+            { 
+                label: 'Amend', name: 'amend'
+            }
+        ];
+        doneCallback(actions);
+    }
+
+    @api
+    flowInputVariables = [];
+
+    handleRowAction(event) {
+        const actionName = event.detail.action.name;
+        const row = event.detail.row;
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        });
+
+        if (actionName === 'add' || actionName === 'amend') {
+            // NEW replaced with row.Id
+            this.selectedAssetId = row.Id;
+            console.log('Selected AssetId: ' + this.selectedAssetId);
+            // Launch the flow, passing AssetId and other necessary variables
+            this.flowApiName = "Clone_Amend_Renew_and_Cancel_Assets";
+            console.log('Flow Input Variables: 123 - Date: ' );
+            this.flowInputVariables = [
+                {
+                    name: 'recordIds',
+                    type: 'String',
+                    value: this.selectedAssetId
+                },
+                {
+                    name: 'actionType',
+                    type:'String',
+                    value: 'Amend'
+                }
+            
+            ];
+            console.log('Flow Input Variables: ' + JSON.stringify(this.flowInputVariables));
+            this.renderFlow = true;
+            // Optionally, you can set a variable to distinguish between Add and Amend
+        }
+
+    }
+
+    get inputVariables() {
+        return [
             {
                 name: 'recordIds',
-                type: 'String',
+                type: 'text',
                 value: this.selectedAssetId
             },
             {
                 name: 'actionType',
-                type:'String',
+                type:'text',
                 value: 'Amend'
             }
         
         ];
-        console.log('Flow Input Variables: ' + JSON.stringify(this.flowInputVariables));
-        this.renderFlow = true;
-        // Optionally, you can set a variable to distinguish between Add and Amend
     }
 
-}
+    handleStatusChange(event) {
+        if (event.detail.status === 'FINISHED') {
+            // set behavior after a finished flow interview
 
-// get formattedGridData() {
-//     return (this.gridData || []).map(row => ({
-//         ...row,
-//         Mrr: row.Mrr === 0 ? '$0' : row.Mrr
-//     }));
-// }
+            this.renderFlow = false;
 
-get inputVariables() {
-    return [
-        {
-            name: 'recordIds',
-            type: 'text',
-            value: this.selectedAssetId
-        },
-        {
-            name: 'actionType',
-            type:'text',
-            value: 'Amend'
+            // Fire toast AFTER modal is closed
+            setTimeout(() => {
+            // Make the refresh work with after the amend.
+            refreshApex(result);
+            // Assume this.selectedAssetId is the updated row
+            this.recentlyUpdatedAssetId = this.selectedAssetId;
+            refreshApex(this.wiredAssetsResult).then(() => {
+                // Optionally, you can clear the highlight after a timeout
+                setTimeout(() => {
+                    this.recentlyUpdatedAssetId = null;
+                    window.reload();
+                }, 3000); // highlight for 3 seconds
+            });
+
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Success!',
+                        message: 'The amendment has been successfully completed',
+                        variant: 'success',
+                        mode: 'dismissable'
+                    })
+                );
+            }, 100); // Small delay to ensure modal is closed
+            
+            
+            
         }
-       
-    ];
-}
+    }
 
-handleStatusChange(event) {
-    if (event.detail.status === 'FINISHED') {
-        // set behavior after a finished flow interview
+    handleFinish(event) {
+        console.log('Flow Finished', event.detail);
 
-        this.renderFlow = false;
-
-         // Fire toast AFTER modal is closed
-        setTimeout(() => {
-        // TODO: Make the refresh work with after the amend.
-        refreshApex(result);
         // Assume this.selectedAssetId is the updated row
         this.recentlyUpdatedAssetId = this.selectedAssetId;
         refreshApex(this.wiredAssetsResult).then(() => {
             // Optionally, you can clear the highlight after a timeout
             setTimeout(() => {
                 this.recentlyUpdatedAssetId = null;
-                window.reload();
             }, 3000); // highlight for 3 seconds
         });
-
-            this.dispatchEvent(
-                new ShowToastEvent({
-                    title: 'Success!',
-                    message: 'The amendment has been successfully completed',
-                    variant: 'success',
-                    mode: 'dismissable'
-                })
-            );
-        }, 100); // Small delay to ensure modal is closed
-        
-        
-        
+        this.renderFlow = false;
     }
-}
 
-handleFinish(event) {
-    console.log('Flow Finished', event.detail);
-    // this.dispatchEvent(new CustomEvent('closemodal', {bubbles: true}));
+    closeModal() {
+        this.renderFlow = false;
+    }
 
-    // Assume this.selectedAssetId is the updated row
-    this.recentlyUpdatedAssetId = this.selectedAssetId;
-    refreshApex(this.wiredAssetsResult).then(() => {
-        // Optionally, you can clear the highlight after a timeout
-        setTimeout(() => {
-            this.recentlyUpdatedAssetId = null;
-        }, 3000); // highlight for 3 seconds
-    });
-    this.renderFlow = false;
-}
+    // NEW added getter for title 
+    get dynamicTitle() {
+        return `My Current Assets as of ${this.validityDate}`;
+    }
 
-closeModal() {
-    this.renderFlow = false;
-}
+    get gridDataWithHighlight() {
+        return (this.gridData || []).map(row => ({
+            ...row,
+            _rowClass: row.AssetId === this.recentlyUpdatedAssetId ? 'highlight-row' : ''
+        }));
+    }
 
-get gridDataWithHighlight() {
-    return (this.gridData || []).map(row => ({
-        ...row,
-        _rowClass: row.AssetId === this.recentlyUpdatedAssetId ? 'highlight-row' : ''
-    }));
-}
+    rowClass(row) {
+        return row._rowClass;
+    }
 
-rowClass(row) {
-    return row._rowClass;
-}
-
-
-
-// handleInputChange(event) {
-//         this.dateInputValue = event.target.value;
-//         console.log('this.dateInputValue is: ', this.dateInputValue);
-//         this.disableButton = false;
-//         console.log('this.disableButton is: ', this.disableButton);
-//     const theValidityDate = this.dateInputValue;
-//     this.dispatchEvent(new RefreshEvent());
-// }
-
-
-//===========================================================
-
-    // handleRowSelection(event) {
-    //     console.log('handleRowSelection');
-    //     const selectedData = event.detail.selectedRows;
-    //     console.log('selectedData: ' + JSON.stringify(selectedData));
-
-    // }
-    // _getData() {
-    //     retunContactAcount({})
-    //     .then(data => {var obj = JSON.parse(JSON.stringify(data));
-    //         this.isLoading = false;
-    //         let accountContacts = !data.hasOwnProperty('accountContactList') ? [] : data.accountContactList;
-    //     let parseData = JSON.parse(JSON.stringify(accountContacts));
-    //     for (let i = 0; i < parseData.length; i++) {
-    //         // You can add field name as well and value accordingly
-    //     //parseData[i]["fieldName"] = "value"
-    //     // Nested items defined using the _children 
-    //     parseData[i]._children = parseData[i]["Contacts"];
-    //     }
-    //     this.accountContactdata = parseData;
-    //     })
-    //     .catch(error => {console.log(error);});}
 
     
 }
