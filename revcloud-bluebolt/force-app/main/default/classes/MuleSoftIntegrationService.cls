@@ -1,0 +1,248 @@
+/**
+ * @description       : Prepares payloads for either Account, Product, Order or Invoice and sends to Netsuite (MuleSoft)
+ * @author            : Frank Berni
+ * @group             : Cognizant
+ * @last modified on  : 07-01-2025
+ * @last modified by  : Frank Berni
+**/
+public with sharing class MuleSoftIntegrationService {
+
+    // Shared method for callouts
+    private static void sendPayload(String endpoint, Map<String, Object> payload) {
+
+        // Setting up request
+        HttpRequest req = new HttpRequest();
+        // Uses MuleSoft_Integration Named Credential URL: 
+        // TODO update placeholder: https://anypoint.mulesoft.com/mocking/api/v1/sources/vcs/projects/a1b27c70-73f0-49e5-899e-4954a11de117/master/m
+        req.setEndpoint('callout:MuleSoft_Integration' + endpoint);
+        req.setMethod('PUT');
+        req.setHeader('Content-Type', 'application/json');
+        req.setBody(JSON.serialize(payload));
+
+        Http http = new Http();
+        try {
+            HttpResponse res = http.send(req);
+            System.debug('MuleSoft response for ' + endpoint + ': ' + res.getBody());
+        } catch (Exception e) {
+            System.debug('Callout failed for ' + endpoint + ': ' + e.getMessage());
+        }
+    }
+
+    public static void sendAccountToMuleSoft(Id accountId) {
+
+        // Querying account
+        Account acc = [
+            SELECT Id, Name, ParentId, Phone, Fax, Website, Subsidiary__c, VAT_GST_ID__c, 
+                   BillingStreet, BillingCity, BillingState, BillingPostalCode,
+                   BillingCountry, Sync_to_Netsuite__c, Active__c, Industry,
+                   Owner.Name, Owner.Email
+            FROM Account
+            WHERE Id = :accountId
+        ];
+
+        // If Sync to Netsuite is false, don't do anything
+        if (!acc.Sync_to_Netsuite__c) return;
+
+        // Creating Map, Object for all Account Fields to send to Netsuite
+        Map<String, Object> payload = new Map<String, Object>{
+            'Id' => acc.Id,
+            'Name' => acc.Name,
+            'ParentId' => acc.ParentId,
+            'Phone' => acc.Phone,
+            'Fax' => acc.Fax,
+            'Website' => acc.Website,
+            'Subsidiary__c' => acc.Subsidiary__c,
+            // CurrencyIsoCode will always be USD
+            'CurrencyIsoCode' => 'USD',
+            'VAT_GST_ID__c' => acc.VAT_GST_ID__c,
+            'BillingStreet' => acc.BillingStreet,
+            'BillingCity' => acc.BillingCity,
+            'BillingState' => acc.BillingState,
+            'BillingPostalCode' => acc.BillingPostalCode,
+            'BillingCountry' => acc.BillingCountry,
+            'Industry' => acc.Industry,
+            'Active__c' => acc.Active__c,
+            'OwnerName' => acc.Owner != null ? acc.Owner.Name : null,
+            'OwnerEmail' => acc.Owner != null ? acc.Owner.Email : null
+        };
+
+        // Send payload using /customer as endpoint
+        sendPayload('/customer', payload);
+    }
+
+    public static void sendProductToMuleSoft(Id productId) {
+
+        // Querying Product2
+        Product2 prod = [
+            SELECT Id, Name, ProductCode, Description, NS_Internal_ID__c, Item_Type__c,
+                   Sub_Type__c, IsActive, Subsidiary__c, Family, Type, Sync_to_Netsuite__c
+            FROM Product2
+            WHERE Id = :productId
+        ];
+
+        // If Sync to Netsuite is false, don't do anything
+        if (!prod.Sync_to_Netsuite__c) return;
+
+        // Creating Map, Object for all Product Fields to send to Netsuite
+        Map<String, Object> payload = new Map<String, Object>{
+            'Id' => prod.Id,
+            'Name' => prod.Name,
+            'ProductCode' => prod.ProductCode,
+            'Description' => prod.Description,
+            'NS_Internal_ID__c' => prod.NS_Internal_ID__c,
+            'Item_Type__c' => prod.Item_Type__c,
+            'Sub_Type__c' => prod.Sub_Type__c,
+            'IsActive' => prod.IsActive,
+            'Subsidiary__c' => prod.Subsidiary__c,
+            'Family' => prod.Family,
+            'ProductType' => prod.Type
+        };
+
+        // Send payload using /item as endpoint
+        sendPayload('/item', payload);
+    }
+
+    public static void sendOrderToMuleSoft(Id orderId) {
+
+        // Querying Order with OrderItems
+        Order ord = [
+            SELECT Id, EffectiveDate, OrderNumber, PoNumber, EndDate, 
+                   Bill_To_Address_ID__c, BillingStreet, BillingCity, BillingState, BillingPostalCode,
+                   BillingCountry, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode,
+                   ShippingCountry, 
+                   Ship_To_Address_ID__c, 
+                   ActivatedDate, Description, Payment_Term__c,
+                   Subsidiary__c, Sync_to_Netsuite__c,
+                   Account.Name, Account.Phone, Contract.Id,
+                   (SELECT Quantity, UnitPrice, ServiceDate, Product2.Name, Product2.Type, Product2.Family, Order_Item_Type__c FROM OrderItems)
+            FROM Order
+            WHERE Id = :orderId
+        ];
+
+        // If Sync to Netsuite is false, don't do anything
+        if (!ord.Sync_to_Netsuite__c) return;
+
+        // Creating List of Map, Object for all OrderItem Fields
+        List<Map<String, Object>> lineItems = new List<Map<String, Object>>();
+        for (OrderItem item : ord.OrderItems) {
+            lineItems.add(new Map<String, Object>{
+                'ProductName' => item.Product2 != null ? item.Product2.Name : null,
+                'Quantity' => item.Quantity,
+                'UnitPrice' => item.UnitPrice,
+                'ServiceDate' => item.ServiceDate,
+                'ProductType' => item.Product2 != null ? item.Product2.Type : null,
+                'ProductFamily' => item.Product2 != null ? item.Product2.Family : null,
+                'OrderItemType' => item.Order_Item_Type__c
+            });
+        }
+
+        // Creating Map, Object for all Order Fields to send to Netsuite
+        Map<String, Object> payload = new Map<String, Object>{
+            'Id' => ord.Id,
+            'OrderNumber' => ord.OrderNumber,
+            'EffectiveDate' => ord.EffectiveDate,
+            'PoNumber' => ord.PoNumber,
+            'EndDate' => ord.EndDate,
+            // CurrencyIsoCode will always be USD
+            'CurrencyIsoCode' => 'USD',
+            'BillingStreet' => ord.BillingStreet,
+            'BillingCity' => ord.BillingCity,
+            'BillingState' => ord.BillingState,
+            'BillingPostalCode' => ord.BillingPostalCode,
+            'BillingCountry' => ord.BillingCountry,
+            'ShipToAddressId' => ord.Ship_To_Address_ID__c,
+            'ShippingStreet' => ord.ShippingStreet,
+            'ShippingCity' => ord.ShippingCity,
+            'ShippingState' => ord.ShippingState,
+            'ShippingPostalCode' => ord.ShippingPostalCode,
+            'ShippingCountry' => ord.ShippingCountry,
+            'ActivatedDate' => ord.ActivatedDate,
+            'Description' => ord.Description,
+            'Payment_Term__c' => ord.Payment_Term__c,
+            'Subsidiary__c' => ord.Subsidiary__c,
+            'AccountName' => ord.Account != null ? ord.Account.Name : null,
+            'AccountPhone' => ord.Account != null ? ord.Account.Phone : null,
+            'ContractId' => ord.ContractId,
+            // Using List of Map, Object created from OrderItems
+            'LineItems' => lineItems
+        };
+
+        // Send payload using /salesorder as endpoint
+        sendPayload('/salesorder', payload);
+    }
+
+    public static void sendInvoiceToMuleSoft(Id invoiceId) {
+
+        // Querying Invoice with Invoice Lines
+        Invoice invoice = [
+            SELECT Id, InvoiceDate, DocumentNumber, DueDate, PostedDate, Payment_Term__c,
+                   Subsidiary__c, Sync_to_Netsuite__c, Description,
+                   Order__r.Order_Name__c, Order__r.Type, Order__r.OrderNumber,
+                   BillingAccount.Name, BillingAccount.Phone,
+                   BillingAccount.BillingAddress, BillingAccount.BillingCity, BillingAccount.BillingState,
+                   BillingAccount.BillingPostalCode, BillingAccount.BillingCountry,
+                   BillingAccount.ShippingAddress, BillingAccount.ShippingCity, BillingAccount.ShippingState,
+                   BillingAccount.ShippingPostalCode, BillingAccount.ShippingCountry,
+                   BillToContact.Name,
+                   (SELECT Id, Description, LineAmount, Quantity,
+                           Product2.Name, Product2.Family, Product2.Type,
+                           Product2.BasedOnId, Order_Product_del__r.OrderId
+                    FROM InvoiceLines)
+            FROM Invoice
+            WHERE Id = :invoiceId
+        ];
+
+        // If Sync to Netsuite is false, don't do anything
+        if (!invoice.Sync_to_Netsuite__c) return;
+
+        // Creating List of Map, Object for all Invoice Line Fields
+        List<Map<String, Object>> lineItems = new List<Map<String, Object>>();
+        for (InvoiceLine line : invoice.InvoiceLines) {
+            lineItems.add(new Map<String, Object>{
+                'Id' => line.Id,
+                'Description' => line.Description,
+                'LineAmount' => line.LineAmount,
+                'Quantity' => line.Quantity,
+                'ProductName' => line.Product2 != null ? line.Product2.Name : null,
+                'ProductFamily' => line.Product2 != null ? line.Product2.Family : null,
+                'ProductType' => line.Product2 != null ? line.Product2.Type : null,
+                'ProductBasedOnId' => line.Product2 != null ? line.Product2.BasedOnId : null,
+                'OrderId' => line.Order_Product_del__r.OrderId
+            });
+        }
+
+        // Creating Map, Object for all Invoice Fields to send to Netsuite
+        Map<String, Object> payload = new Map<String, Object>{
+            'Id' => invoice.Id,
+            'InvoiceDate' => invoice.InvoiceDate,
+            'DocumentNumber' => invoice.DocumentNumber,
+            'DueDate' => invoice.DueDate,
+            'PostedDate' => invoice.PostedDate,
+            'PaymentTerm' => invoice.Payment_Term__c,
+            'Subsidiary' => invoice.Subsidiary__c,
+            'Description' => invoice.Description,
+            'OrderName' => invoice.Order__r != null ? invoice.Order__r.Order_Name__c : null,
+            'OrderType' => invoice.Order__r != null ? invoice.Order__r.Type : null,
+            'OrderNumber' => invoice.Order__r != null ? invoice.Order__r.OrderNumber : null,
+            'BillingAccountName' => invoice.BillingAccount != null ? invoice.BillingAccount.Name : null,
+            'BillingAccountPhone' => invoice.BillingAccount != null ? invoice.BillingAccount.Phone : null,
+            'BillingAddress' => invoice.BillingAccount != null ? invoice.BillingAccount.BillingAddress : null,
+            'BillingCity' => invoice.BillingAccount != null ? invoice.BillingAccount.BillingCity : null,
+            'BillingState' => invoice.BillingAccount != null ? invoice.BillingAccount.BillingState : null,
+            'BillingPostalCode' => invoice.BillingAccount != null ? invoice.BillingAccount.BillingPostalCode : null,
+            'BillingCountry' => invoice.BillingAccount != null ? invoice.BillingAccount.BillingCountry : null,
+            'ShippingAddress' => invoice.BillingAccount != null ? invoice.BillingAccount.ShippingAddress : null,
+            'ShippingCity' => invoice.BillingAccount != null ? invoice.BillingAccount.ShippingCity : null,
+            'ShippingState' => invoice.BillingAccount != null ? invoice.BillingAccount.ShippingState : null,
+            'ShippingPostalCode' => invoice.BillingAccount != null ? invoice.BillingAccount.ShippingPostalCode : null,
+            'ShippingCountry' => invoice.BillingAccount != null ? invoice.BillingAccount.ShippingCountry : null,
+            'BillToContactName' => invoice.BillToContact != null ? invoice.BillToContact.Name : null,
+            // Using List of Map, Object created from Invoice Lines
+            'LineItems' => lineItems
+        };
+
+        // Send payload using /invoice as endpoint
+        sendPayload('/invoice', payload);
+    }
+
+}
