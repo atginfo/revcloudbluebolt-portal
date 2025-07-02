@@ -60,7 +60,7 @@ public with sharing class PortalAccountInformation {
                    Account.AccountNumber
             FROM Contact
             WHERE AccountId =:accountId
-            // WITH Security_ENFORCED
+            WITH Security_ENFORCED
             ORDER BY FirstName, LastName
         ];
         System.debug('contactsOnTheAccount: ' + contactsOnTheAccount);
