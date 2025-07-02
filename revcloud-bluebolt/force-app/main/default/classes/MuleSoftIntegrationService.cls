@@ -2,7 +2,7 @@
  * @description       : Prepares payloads for either Account, Product, Order or Invoice and sends to Netsuite (MuleSoft)
  * @author            : Frank Berni
  * @group             : Cognizant
- * @last modified on  : 07-01-2025
+ * @last modified on  : 07-02-2025
  * @last modified by  : Frank Berni
 **/
 public with sharing class MuleSoftIntegrationService {
@@ -18,6 +18,8 @@ public with sharing class MuleSoftIntegrationService {
         req.setMethod('PUT');
         req.setHeader('Content-Type', 'application/json');
         req.setBody(JSON.serialize(payload));
+
+        System.debug('MuleSoft request for ' + endpoint + ': ' + req.getBody());
 
         Http http = new Http();
         try {
@@ -67,6 +69,7 @@ public with sharing class MuleSoftIntegrationService {
         };
 
         // Send payload using /customer as endpoint
+        System.debug('Account Payload: ' + payload);
         sendPayload('/customer', payload);
     }
 
@@ -99,11 +102,13 @@ public with sharing class MuleSoftIntegrationService {
         };
 
         // Send payload using /item as endpoint
+        System.debug('Product Payload: ' + payload);
         sendPayload('/item', payload);
     }
 
     public static void sendOrderToMuleSoft(Id orderId) {
 
+        // TODO need to query for all BillingSchedules based on 
         // Querying Order with OrderItems
         Order ord = [
             SELECT Id, EffectiveDate, OrderNumber, PoNumber, EndDate, 
@@ -114,7 +119,8 @@ public with sharing class MuleSoftIntegrationService {
                    ActivatedDate, Description, Payment_Term__c,
                    Subsidiary__c, Sync_to_Netsuite__c,
                    Account.Name, Account.Phone, Contract.Id,
-                   (SELECT Quantity, UnitPrice, ServiceDate, Product2.Name, Product2.Type, Product2.Family, Order_Item_Type__c FROM OrderItems)
+                   (SELECT Quantity, UnitPrice, ServiceDate, Product2.Name, Product2.Type, Product2.Family, Order_Item_Type__c FROM OrderItems),
+                   (SELECT BillingScheduleNumber, BillingPeriodAmount, BillingTerm, BillingTermUnit FROM BillingSchedules)
             FROM Order
             WHERE Id = :orderId
         ];
@@ -133,6 +139,17 @@ public with sharing class MuleSoftIntegrationService {
                 'ProductType' => item.Product2 != null ? item.Product2.Type : null,
                 'ProductFamily' => item.Product2 != null ? item.Product2.Family : null,
                 'OrderItemType' => item.Order_Item_Type__c
+            });
+        }
+
+        // Creating List of Map, Object for all BillingSchedule Fields
+        List<Map<String, Object>> billingSchedules = new List<Map<String, Object>>();
+        for (BillingSchedule bs : ord.BillingSchedules) {
+            billingSchedules.add(new Map<String, Object>{
+                'BillingScheduleNumber' => bs.BillingScheduleNumber,
+                'BillingPeriodAmount' => bs.BillingPeriodAmount,
+                'BillingTerm' => bs.BillingTerm,
+                'BillingTermUnit' => bs.BillingTermUnit
             });
         }
 
@@ -164,10 +181,12 @@ public with sharing class MuleSoftIntegrationService {
             'AccountPhone' => ord.Account != null ? ord.Account.Phone : null,
             'ContractId' => ord.ContractId,
             // Using List of Map, Object created from OrderItems
-            'LineItems' => lineItems
+            'LineItems' => lineItems,
+            'BillingSchedules' => billingSchedules
         };
 
         // Send payload using /salesorder as endpoint
+        System.debug('Order Payload: ' + payload);
         sendPayload('/salesorder', payload);
     }
 
@@ -242,6 +261,7 @@ public with sharing class MuleSoftIntegrationService {
         };
 
         // Send payload using /invoice as endpoint
+        System.debug('Invoice Payload: ' + payload);
         sendPayload('/invoice', payload);
     }
 
