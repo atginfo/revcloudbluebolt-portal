@@ -246,8 +246,8 @@ export default class PortalAccountInformation extends LightningElement {
 
         const tostForSuccessfullContactCreation = new ShowToastEvent({
             title: 'Contact Successfully Created',
-            message: 'Contact ' + event.detail.fields.FirstName.value + ' ' + event.detail.fields.LastName.value + ' with the ID' + 
-                    event.detail.ID + ' has been successfully created.',
+            // NEW updated to not show Id
+            message: 'Contact ' + event.detail.fields.FirstName.value + ' ' + event.detail.fields.LastName.value + ' has been successfully created.',
             variant: 'success'
 
         });
