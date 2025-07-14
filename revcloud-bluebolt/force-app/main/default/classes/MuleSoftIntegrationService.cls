@@ -2,32 +2,15 @@
  * @description       : Prepares payloads for either Account, Product, Order or Invoice and sends to Netsuite (MuleSoft)
  * @author            : Frank Berni
  * @group             : Cognizant
- * @last modified on  : 07-02-2025
+ * @last modified on  : 07-14-2025
  * @last modified by  : Frank Berni
 **/
 public with sharing class MuleSoftIntegrationService {
 
     // Shared method for callouts
     private static void sendPayload(String endpoint, Map<String, Object> payload) {
-
-        // Setting up request
-        HttpRequest req = new HttpRequest();
-        // Uses MuleSoft_Integration Named Credential URL: 
-        // TODO update placeholder: https://anypoint.mulesoft.com/mocking/api/v1/sources/vcs/projects/a1b27c70-73f0-49e5-899e-4954a11de117/master/m
-        req.setEndpoint('callout:MuleSoft_Integration' + endpoint);
-        req.setMethod('PUT');
-        req.setHeader('Content-Type', 'application/json');
-        req.setBody(JSON.serialize(payload));
-
-        System.debug('MuleSoft request for ' + endpoint + ': ' + req.getBody());
-
-        Http http = new Http();
-        try {
-            HttpResponse res = http.send(req);
-            System.debug('MuleSoft response for ' + endpoint + ': ' + res.getBody());
-        } catch (Exception e) {
-            System.debug('Callout failed for ' + endpoint + ': ' + e.getMessage());
-        }
+        // NEW using enqueue to avoid direct callouts in triggers
+        System.enqueueJob(new MuleSoftCalloutJob(endpoint, payload));
     }
 
     public static void sendAccountToMuleSoft(Id accountId) {
@@ -103,7 +86,8 @@ public with sharing class MuleSoftIntegrationService {
 
         // Send payload using /item as endpoint
         System.debug('Product Payload: ' + payload);
-        sendPayload('/item', payload);
+        // NEW updated to product
+        sendPayload('/product', payload);
     }
 
     public static void sendOrderToMuleSoft(Id orderId) {
@@ -187,7 +171,8 @@ public with sharing class MuleSoftIntegrationService {
 
         // Send payload using /salesorder as endpoint
         System.debug('Order Payload: ' + payload);
-        sendPayload('/salesorder', payload);
+        // NEW updated endpoint to order
+        sendPayload('/order', payload);
     }
 
     public static void sendInvoiceToMuleSoft(Id invoiceId) {
