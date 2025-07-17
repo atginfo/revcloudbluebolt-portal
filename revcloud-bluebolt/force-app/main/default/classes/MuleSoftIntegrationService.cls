@@ -2,32 +2,15 @@
  * @description       : Prepares payloads for either Account, Product, Order or Invoice and sends to Netsuite (MuleSoft)
  * @author            : Frank Berni
  * @group             : Cognizant
- * @last modified on  : 07-02-2025
+ * @last modified on  : 07-17-2025
  * @last modified by  : Frank Berni
 **/
 public with sharing class MuleSoftIntegrationService {
 
     // Shared method for callouts
     private static void sendPayload(String endpoint, Map<String, Object> payload) {
-
-        // Setting up request
-        HttpRequest req = new HttpRequest();
-        // Uses MuleSoft_Integration Named Credential URL: 
-        // TODO update placeholder: https://anypoint.mulesoft.com/mocking/api/v1/sources/vcs/projects/a1b27c70-73f0-49e5-899e-4954a11de117/master/m
-        req.setEndpoint('callout:MuleSoft_Integration' + endpoint);
-        req.setMethod('PUT');
-        req.setHeader('Content-Type', 'application/json');
-        req.setBody(JSON.serialize(payload));
-
-        System.debug('MuleSoft request for ' + endpoint + ': ' + req.getBody());
-
-        Http http = new Http();
-        try {
-            HttpResponse res = http.send(req);
-            System.debug('MuleSoft response for ' + endpoint + ': ' + res.getBody());
-        } catch (Exception e) {
-            System.debug('Callout failed for ' + endpoint + ': ' + e.getMessage());
-        }
+        // NEW using enqueue to avoid direct callouts in triggers
+        System.enqueueJob(new MuleSoftCalloutJob(endpoint, payload));
     }
 
     public static void sendAccountToMuleSoft(Id accountId) {
@@ -103,12 +86,12 @@ public with sharing class MuleSoftIntegrationService {
 
         // Send payload using /item as endpoint
         System.debug('Product Payload: ' + payload);
-        sendPayload('/item', payload);
+        // NEW updated to product
+        sendPayload('/product', payload);
     }
 
     public static void sendOrderToMuleSoft(Id orderId) {
 
-        // TODO need to query for all BillingSchedules based on 
         // Querying Order with OrderItems
         Order ord = [
             SELECT Id, EffectiveDate, OrderNumber, PoNumber, EndDate, 
@@ -118,8 +101,11 @@ public with sharing class MuleSoftIntegrationService {
                    Ship_To_Address_ID__c, 
                    ActivatedDate, Description, Payment_Term__c,
                    Subsidiary__c, Sync_to_Netsuite__c,
-                   Account.Name, Account.Phone, Contract.Id,
-                   (SELECT Quantity, UnitPrice, ServiceDate, Product2.Name, Product2.Type, Product2.Family, Order_Item_Type__c FROM OrderItems),
+                   AccountId, Account.Name, Account.Phone, Contract.Id, 
+                    // NEW add new query fields for mapping
+                   Account.AccountNumber, BillToContactId, BillToContact.Name,
+                   (SELECT Quantity, UnitPrice, ServiceDate, Product2.Name, Product2.Type, Product2.Family, Order_Item_Type__c,
+                    TotalPrice, SBQQ__TaxAmount__c, SBQQ__TaxCode__c, TaxRate__c, Id, NetUnitPrice FROM OrderItems),
                    (SELECT BillingScheduleNumber, BillingPeriodAmount, BillingTerm, BillingTermUnit FROM BillingSchedules)
             FROM Order
             WHERE Id = :orderId
@@ -132,13 +118,20 @@ public with sharing class MuleSoftIntegrationService {
         List<Map<String, Object>> lineItems = new List<Map<String, Object>>();
         for (OrderItem item : ord.OrderItems) {
             lineItems.add(new Map<String, Object>{
+                'Id' => item.Id,
                 'ProductName' => item.Product2 != null ? item.Product2.Name : null,
                 'Quantity' => item.Quantity,
                 'UnitPrice' => item.UnitPrice,
                 'ServiceDate' => item.ServiceDate,
                 'ProductType' => item.Product2 != null ? item.Product2.Type : null,
                 'ProductFamily' => item.Product2 != null ? item.Product2.Family : null,
-                'OrderItemType' => item.Order_Item_Type__c
+                'OrderItemType' => item.Order_Item_Type__c,
+                // NEW added more fields missing from mapping
+                'TotalPrice' => item.TotalPrice,
+                'NetUnitPrice' => item.NetUnitPrice,
+                'TaxAmount' => item.SBQQ__TaxAmount__c,
+                'TaxCode' => item.SBQQ__TaxCode__c,
+                'TaxRate' => item.TaxRate__c
             });
         }
 
@@ -162,6 +155,8 @@ public with sharing class MuleSoftIntegrationService {
             'EndDate' => ord.EndDate,
             // CurrencyIsoCode will always be USD
             'CurrencyIsoCode' => 'USD',
+            // NEW
+            'BillToAddressID' => ord.Bill_To_Address_ID__c,
             'BillingStreet' => ord.BillingStreet,
             'BillingCity' => ord.BillingCity,
             'BillingState' => ord.BillingState,
@@ -177,9 +172,12 @@ public with sharing class MuleSoftIntegrationService {
             'Description' => ord.Description,
             'Payment_Term__c' => ord.Payment_Term__c,
             'Subsidiary__c' => ord.Subsidiary__c,
-            'AccountName' => ord.Account != null ? ord.Account.Name : null,
-            'AccountPhone' => ord.Account != null ? ord.Account.Phone : null,
+            // NEW updated payload mappinh with missing Order fields
+            'AccountName' => ord.AccountId != null ? ord.Account.Name : null,
+            'AccountPhone' => ord.AccountId != null ? ord.Account.Phone : null,
             'ContractId' => ord.ContractId,
+            'BillToContactName' => ord.BillToContactId != null ? ord.BillToContact.Name : null,
+            'AccountNumber' => ord.AccountId != null ? ord.Account.AccountNumber : null,
             // Using List of Map, Object created from OrderItems
             'LineItems' => lineItems,
             'BillingSchedules' => billingSchedules
@@ -187,7 +185,8 @@ public with sharing class MuleSoftIntegrationService {
 
         // Send payload using /salesorder as endpoint
         System.debug('Order Payload: ' + payload);
-        sendPayload('/salesorder', payload);
+        // NEW updated endpoint to order
+        sendPayload('/order', payload);
     }
 
     public static void sendInvoiceToMuleSoft(Id invoiceId) {
