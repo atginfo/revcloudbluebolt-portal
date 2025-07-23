@@ -106,7 +106,8 @@ public with sharing class MuleSoftIntegrationService {
                     // NEW add new query fields for mapping
                    Account.AccountNumber, BillToContactId, BillToContact.Name,
                    (SELECT Quantity, UnitPrice, ServiceDate, Product2.Name, Product2.Type, Product2.Family, Order_Item_Type__c,
-                    TotalPrice, SBQQ__TaxAmount__c, SBQQ__TaxCode__c, TaxRate__c, Id, NetUnitPrice, BillingFrequency2 FROM OrderItems),
+                    TotalPrice, SBQQ__TaxAmount__c, SBQQ__TaxCode__c, TaxRate__c, Id, NetUnitPrice, BillingFrequency2, SBQQ__Contract__c, 
+                    SBQQ__Contract__r.EndDate, SBQQ__Contract__r.StartDate FROM OrderItems),
                    (SELECT BillingScheduleNumber, BillingPeriodAmount, BillingTerm, BillingTermUnit FROM BillingSchedules)
             FROM Order
             WHERE Id = :orderId
@@ -133,7 +134,10 @@ public with sharing class MuleSoftIntegrationService {
                 'TaxAmount' => item.SBQQ__TaxAmount__c,
                 'TaxCode' => item.SBQQ__TaxCode__c,
                 'TaxRate' => item.TaxRate__c,
-                'BillingFrequency' => item.BillingFrequency2
+                'BillingFrequency' => item.BillingFrequency2,
+                // TODO Kevin to confirm if proper StartDate field is needed
+                'ContractStartDate' => item.SBQQ__Contract__c != null ? item.SBQQ__Contract__r.StartDate : null,
+                'ContractEndDate' => item.SBQQ__Contract__c != null ? item.SBQQ__Contract__r.EndDate : null
             });
         }
 
