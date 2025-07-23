@@ -2,7 +2,7 @@
  * @description       : Prepares payloads for either Account, Product, Order or Invoice and sends to Netsuite (MuleSoft)
  * @author            : Frank Berni
  * @group             : Cognizant
- * @last modified on  : 07-17-2025
+ * @last modified on  : 07-23-2025
  * @last modified by  : Frank Berni
 **/
 public with sharing class MuleSoftIntegrationService {
@@ -105,7 +105,7 @@ public with sharing class MuleSoftIntegrationService {
                     // NEW add new query fields for mapping
                    Account.AccountNumber, BillToContactId, BillToContact.Name,
                    (SELECT Quantity, UnitPrice, ServiceDate, Product2.Name, Product2.Type, Product2.Family, Order_Item_Type__c,
-                    TotalPrice, SBQQ__TaxAmount__c, SBQQ__TaxCode__c, TaxRate__c, Id, NetUnitPrice FROM OrderItems),
+                    TotalPrice, SBQQ__TaxAmount__c, SBQQ__TaxCode__c, TaxRate__c, Id, NetUnitPrice, BillingFrequency2 FROM OrderItems),
                    (SELECT BillingScheduleNumber, BillingPeriodAmount, BillingTerm, BillingTermUnit FROM BillingSchedules)
             FROM Order
             WHERE Id = :orderId
@@ -131,7 +131,8 @@ public with sharing class MuleSoftIntegrationService {
                 'NetUnitPrice' => item.NetUnitPrice,
                 'TaxAmount' => item.SBQQ__TaxAmount__c,
                 'TaxCode' => item.SBQQ__TaxCode__c,
-                'TaxRate' => item.TaxRate__c
+                'TaxRate' => item.TaxRate__c,
+                'BillingFrequency' => item.BillingFrequency2
             });
         }
 
