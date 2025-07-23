@@ -20,7 +20,7 @@ public with sharing class MuleSoftIntegrationService {
             SELECT Id, Name, ParentId, Phone, Fax, Website, Subsidiary__c, VAT_GST_ID__c, 
                    BillingStreet, BillingCity, BillingState, BillingPostalCode,
                    BillingCountry, Sync_to_Netsuite__c, Active__c, Industry,
-                   Owner.Name, Owner.Email
+                   Owner.Name, Owner.Email, AccountNumber
             FROM Account
             WHERE Id = :accountId
         ];
@@ -48,7 +48,8 @@ public with sharing class MuleSoftIntegrationService {
             'Industry' => acc.Industry,
             'Active__c' => acc.Active__c,
             'OwnerName' => acc.Owner != null ? acc.Owner.Name : null,
-            'OwnerEmail' => acc.Owner != null ? acc.Owner.Email : null
+            'OwnerEmail' => acc.Owner != null ? acc.Owner.Email : null,
+            'AccountNumber' => acc.AccountNumber
         };
 
         // Send payload using /customer as endpoint
@@ -101,7 +102,7 @@ public with sharing class MuleSoftIntegrationService {
                    Ship_To_Address_ID__c, 
                    ActivatedDate, Description, Payment_Term__c,
                    Subsidiary__c, Sync_to_Netsuite__c,
-                   AccountId, Account.Name, Account.Phone, Contract.Id, 
+                   AccountId, Account.Name, Account.Phone, Contract.Id, CreatedDate,
                     // NEW add new query fields for mapping
                    Account.AccountNumber, BillToContactId, BillToContact.Name,
                    (SELECT Quantity, UnitPrice, ServiceDate, Product2.Name, Product2.Type, Product2.Family, Order_Item_Type__c,
@@ -179,6 +180,7 @@ public with sharing class MuleSoftIntegrationService {
             'ContractId' => ord.ContractId,
             'BillToContactName' => ord.BillToContactId != null ? ord.BillToContact.Name : null,
             'AccountNumber' => ord.AccountId != null ? ord.Account.AccountNumber : null,
+            'CreatedDate' => ord.CreatedDate,
             // Using List of Map, Object created from OrderItems
             'LineItems' => lineItems,
             'BillingSchedules' => billingSchedules
