@@ -2,16 +2,22 @@
  * @description       : Prepares payloads for either Account, Product, Order or Invoice and sends to Netsuite (MuleSoft)
  * @author            : Frank Berni
  * @group             : Cognizant
- * @last modified on  : 07-23-2025
+ * @last modified on  : 07-24-2025
  * @last modified by  : Frank Berni
 **/
 public with sharing class MuleSoftIntegrationService {
 
     // Shared method for callouts
     private static void sendPayload(String endpoint, Map<String, Object> payload) {
-        // NEW using enqueue to avoid direct callouts in triggers
+        // using enqueue to avoid direct callouts in triggers
         System.enqueueJob(new MuleSoftCalloutJob(endpoint, payload));
     }
+
+    // NEW extra sendPayload method with recordId and objectType parameters
+    private static void sendPayload(String endpoint, Map<String, Object> payload, Id recordId, String objectType) {
+        System.enqueueJob(new MuleSoftCalloutJob(endpoint, payload, recordId, objectType));
+    }
+
 
     public static void sendAccountToMuleSoft(Id accountId) {
 
@@ -54,7 +60,9 @@ public with sharing class MuleSoftIntegrationService {
 
         // Send payload using /customer as endpoint
         System.debug('Account Payload: ' + payload);
-        sendPayload('/customer', payload);
+        // NEW updated to include RecordId and ObjectType
+        sendPayload('/customer', payload, acc.Id, 'Account');
+
     }
 
     public static void sendProductToMuleSoft(Id productId) {
@@ -87,8 +95,9 @@ public with sharing class MuleSoftIntegrationService {
 
         // Send payload using /item as endpoint
         System.debug('Product Payload: ' + payload);
-        // NEW updated to product
-        sendPayload('/product', payload);
+        // NEW updated to include RecordId and ObjectType
+        sendPayload('/product', payload, prod.Id, 'Product2');
+
     }
 
     public static void sendOrderToMuleSoft(Id orderId) {
@@ -104,10 +113,10 @@ public with sharing class MuleSoftIntegrationService {
                    Subsidiary__c, Sync_to_Netsuite__c,
                    AccountId, Account.Name, Account.Phone, Contract.Id, CreatedDate,
                     // NEW add new query fields for mapping
-                   Account.AccountNumber, BillToContactId, BillToContact.Name,
+                   Account.AccountNumber, BillToContactId, BillToContact.Name, Account.Netsuite_Id__c,
                    (SELECT Quantity, UnitPrice, ServiceDate, Product2.Name, Product2.Type, Product2.Family, Order_Item_Type__c,
                     TotalPrice, SBQQ__TaxAmount__c, SBQQ__TaxCode__c, TaxRate__c, Id, NetUnitPrice, BillingFrequency2, SBQQ__Contract__c, 
-                    SBQQ__Contract__r.EndDate, SBQQ__Contract__r.StartDate FROM OrderItems),
+                    SBQQ__Contract__r.EndDate, SBQQ__Contract__r.StartDate, Product2.Netsuite_Id__c FROM OrderItems),
                    (SELECT BillingScheduleNumber, BillingPeriodAmount, BillingTerm, BillingTermUnit FROM BillingSchedules)
             FROM Order
             WHERE Id = :orderId
@@ -127,6 +136,8 @@ public with sharing class MuleSoftIntegrationService {
                 'ServiceDate' => item.ServiceDate,
                 'ProductType' => item.Product2 != null ? item.Product2.Type : null,
                 'ProductFamily' => item.Product2 != null ? item.Product2.Family : null,
+                // NEW Netsuite ProductId added
+                'NetsuiteProductId' => item.Product2 != null ? item.Product2.Netsuite_Id__c : null,
                 'OrderItemType' => item.Order_Item_Type__c,
                 // NEW added more fields missing from mapping
                 'TotalPrice' => item.TotalPrice,
@@ -161,7 +172,6 @@ public with sharing class MuleSoftIntegrationService {
             'EndDate' => ord.EndDate,
             // CurrencyIsoCode will always be USD
             'CurrencyIsoCode' => 'USD',
-            // NEW
             'BillToAddressID' => ord.Bill_To_Address_ID__c,
             'BillingStreet' => ord.BillingStreet,
             'BillingCity' => ord.BillingCity,
@@ -178,12 +188,14 @@ public with sharing class MuleSoftIntegrationService {
             'Description' => ord.Description,
             'Payment_Term__c' => ord.Payment_Term__c,
             'Subsidiary__c' => ord.Subsidiary__c,
-            // NEW updated payload mappinh with missing Order fields
+            // updated payload mapping with missing Order fields
             'AccountName' => ord.AccountId != null ? ord.Account.Name : null,
             'AccountPhone' => ord.AccountId != null ? ord.Account.Phone : null,
             'ContractId' => ord.ContractId,
             'BillToContactName' => ord.BillToContactId != null ? ord.BillToContact.Name : null,
-            'AccountNumber' => ord.AccountId != null ? ord.Account.AccountNumber : null,
+            // 'AccountNumber' => ord.AccountId != null ? ord.Account.AccountNumber : null,
+            // NEW replacing AccountNumber with AccountNetsuiteId
+            'AccountNetsuiteId' => ord.AccountId != null ?  ord.Account.Netsuite_Id__c : null,
             'CreatedDate' => ord.CreatedDate,
             // Using List of Map, Object created from OrderItems
             'LineItems' => lineItems,
