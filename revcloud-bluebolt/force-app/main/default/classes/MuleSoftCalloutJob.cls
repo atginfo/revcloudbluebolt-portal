@@ -2,7 +2,7 @@
  * @description       : Asynchronous process to callout to MuleSoft based on type of payload
  * @author            : Frank Berni
  * @group             : Cognizant
- * @last modified on  : 07-24-2025
+ * @last modified on  : 07-29-2025
  * @last modified by  : Frank Berni
 **/
 public class MuleSoftCalloutJob implements Queueable, Database.AllowsCallouts {
@@ -34,6 +34,8 @@ public class MuleSoftCalloutJob implements Queueable, Database.AllowsCallouts {
         req.setMethod('PUT');
         req.setHeader('Content-Type', 'application/json');
         req.setBody(JSON.serialize(payload));
+        // NEW using setTimeout to avoid timeout issues when stamping NS Id
+        req.setTimeout(90000);
 
         Http http = new Http();
         HttpResponse res = new HttpResponse();
@@ -41,7 +43,15 @@ public class MuleSoftCalloutJob implements Queueable, Database.AllowsCallouts {
         // NEW Attempting the callout first
         try {
             res = http.send(req);
-            System.debug('MuleSoft response for ' + endpoint + ': ' + res.getBody());
+            String body = res.getBody();
+            // Log response in chunks
+            Integer chunkSize = 1000;
+            for (Integer i=0; i < body.length(); i+=chunkSize) {
+                Integer ending = Math.min(i + chunkSize, body.length());
+                System.debug('MuleSoft response for ' + endpoint);
+                System.debug('MuleSoft response chunk: ' + body.substring(i, ending));
+            }
+            
         } 
         catch (Exception e) {
             System.debug('Callout failed for ' + endpoint + ': ' + e.getMessage());
