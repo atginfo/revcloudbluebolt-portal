@@ -1,8 +1,8 @@
 /**
- * @description       : Asynchronous process to callout to MuleSoft based on type of payload
+ * @description       : Asynchronous process to callout to MuleSoft based on type of payload and stamps Netsuite Id upon success
  * @author            : Frank Berni
  * @group             : Cognizant
- * @last modified on  : 07-29-2025
+ * @last modified on  : 07-30-2025
  * @last modified by  : Frank Berni
 **/
 public class MuleSoftCalloutJob implements Queueable, Database.AllowsCallouts {
@@ -12,12 +12,12 @@ public class MuleSoftCalloutJob implements Queueable, Database.AllowsCallouts {
     private Id recordId;
     private String objectType;
 
-    // NEW constructor handles Orders and Invoices
+    // TODO to be deprecated
     public MuleSoftCalloutJob(String endpoint, Map<String, Object> payload) {
         this(endpoint, payload, null, null);
     }
 
-    // NEW constructor handles Accounts and Products
+    // NEW constructor handles SObject and stamps NSId
     public MuleSoftCalloutJob(String endpoint, Map<String, Object> payload, Id recordId, String objectType) {
         this.endpoint = endpoint;
         this.payload = payload;
@@ -51,13 +51,14 @@ public class MuleSoftCalloutJob implements Queueable, Database.AllowsCallouts {
                 System.debug('MuleSoft response for ' + endpoint);
                 System.debug('MuleSoft response chunk: ' + body.substring(i, ending));
             }
+            System.debug('Payload from Netsuite received. Attempting to update record.');
             
         } 
         catch (Exception e) {
             System.debug('Callout failed for ' + endpoint + ': ' + e.getMessage());
         }
 
-        System.debug('Payload from Netsuite received. Attempting to update record.');
+        
         System.debug(res.getStatusCode());
         // System.debug(recordId);
         // System.debug(objectType);
@@ -75,7 +76,7 @@ public class MuleSoftCalloutJob implements Queueable, Database.AllowsCallouts {
                     String nsId = String.valueOf(firstRecord.get('id'));
                     System.debug('Netsuite Id: ' + nsId);
 
-                    // Determine if Account or Product then update existing record with new Netsuite Id
+                    // Determine what objectType then update existing record with new Netsuite Id
                     if (objectType == 'Account') {
                         Account accToUpdate = new Account(Id = recordId, Netsuite_Id__c = nsId);
                         update accToUpdate;
@@ -84,6 +85,15 @@ public class MuleSoftCalloutJob implements Queueable, Database.AllowsCallouts {
                         Product2 prodToUpdate = new Product2(Id = recordId, Netsuite_Id__c = nsId);
                         update prodToUpdate;
                         System.debug('Product Update Successful: ' + recordId);
+                    // NEW added handling for Order and Invoice records
+                    } else if (objectType == 'Order') {
+                        Order orderToUpdate = new Order(Id = recordId, Netsuite_Id__c = nsId);
+                        update orderToUpdate;
+                        System.debug('Order Update Successful: ' + recordId);
+                    } else if (objectType == 'Invoice') {
+                        Invoice invoiceToUpdate = new Invoice(Id = recordId, Netsuite_Id__c = nsId);
+                        update invoiceToUpdate;
+                        System.debug('Invoice Update Successful: ' + recordId);
                     }
                 }
             }
