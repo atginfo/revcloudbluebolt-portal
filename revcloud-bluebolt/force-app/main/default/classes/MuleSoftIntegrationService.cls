@@ -2,11 +2,12 @@
  * @description       : Prepares payloads for either Account, Product, Order or Invoice and sends to Netsuite (MuleSoft)
  * @author            : Frank Berni
  * @group             : Cognizant
- * @last modified on  : 07-24-2025
+ * @last modified on  : 07-30-2025
  * @last modified by  : Frank Berni
 **/
 public with sharing class MuleSoftIntegrationService {
 
+    // TODO this method to be deprecated 
     // Shared method for callouts
     private static void sendPayload(String endpoint, Map<String, Object> payload) {
         // using enqueue to avoid direct callouts in triggers
@@ -111,7 +112,8 @@ public with sharing class MuleSoftIntegrationService {
                    Ship_To_Address_ID__c, 
                    ActivatedDate, Description, Payment_Term__c,
                    Subsidiary__c, Sync_to_Netsuite__c,
-                   AccountId, Account.Name, Account.Phone, Contract.Id, CreatedDate,
+                   // NEW added Netsuite_Id__c to query
+                   AccountId, Account.Name, Account.Phone, Contract.Id, CreatedDate, Netsuite_Id__c,
                     // NEW add new query fields for mapping
                    Account.AccountNumber, BillToContactId, BillToContact.Name, Account.Netsuite_Id__c,
                    (SELECT Quantity, UnitPrice, ServiceDate, Product2.Name, Product2.Type, Product2.Family, Order_Item_Type__c,
@@ -146,7 +148,6 @@ public with sharing class MuleSoftIntegrationService {
                 'TaxCode' => item.SBQQ__TaxCode__c,
                 'TaxRate' => item.TaxRate__c,
                 'BillingFrequency' => item.BillingFrequency2,
-                // TODO Kevin to confirm if proper StartDate field is needed
                 'ContractStartDate' => item.SBQQ__Contract__c != null ? item.SBQQ__Contract__r.StartDate : null,
                 'ContractEndDate' => item.SBQQ__Contract__c != null ? item.SBQQ__Contract__r.EndDate : null
             });
@@ -193,6 +194,8 @@ public with sharing class MuleSoftIntegrationService {
             'AccountPhone' => ord.AccountId != null ? ord.Account.Phone : null,
             'ContractId' => ord.ContractId,
             'BillToContactName' => ord.BillToContactId != null ? ord.BillToContact.Name : null,
+            // NEW added Netsuite_Id__c to payload
+            'NetsuiteId' => ord.Netsuite_Id__c,
             // 'AccountNumber' => ord.AccountId != null ? ord.Account.AccountNumber : null,
             // NEW replacing AccountNumber with AccountNetsuiteId
             'AccountNetsuiteId' => ord.AccountId != null ?  ord.Account.Netsuite_Id__c : null,
@@ -204,8 +207,10 @@ public with sharing class MuleSoftIntegrationService {
 
         // Send payload using /salesorder as endpoint
         System.debug('Order Payload: ' + payload);
-        // NEW updated endpoint to order
-        sendPayload('/order', payload);
+        // updated endpoint to order
+        // sendPayload('/order', payload);
+        // NEW Using 4 param method of sendPayload so NSId gets stamped to Order
+        sendPayload('/order', payload, ord.Id, 'Order');
     }
 
     public static void sendInvoiceToMuleSoft(Id invoiceId) {
@@ -220,7 +225,8 @@ public with sharing class MuleSoftIntegrationService {
                    BillingAccount.BillingPostalCode, BillingAccount.BillingCountry,
                    BillingAccount.ShippingAddress, BillingAccount.ShippingCity, BillingAccount.ShippingState,
                    BillingAccount.ShippingPostalCode, BillingAccount.ShippingCountry,
-                   BillToContact.Name,
+                   // NEW added Netsuite_Id__c to query
+                   BillToContact.Name, Netsuite_Id__c,
                    (SELECT Id, Description, LineAmount, Quantity,
                            Product2.Name, Product2.Family, Product2.Type,
                            Product2.BasedOnId, Order_Product_del__r.OrderId
@@ -274,13 +280,17 @@ public with sharing class MuleSoftIntegrationService {
             'ShippingPostalCode' => invoice.BillingAccount != null ? invoice.BillingAccount.ShippingPostalCode : null,
             'ShippingCountry' => invoice.BillingAccount != null ? invoice.BillingAccount.ShippingCountry : null,
             'BillToContactName' => invoice.BillToContact != null ? invoice.BillToContact.Name : null,
+            // NEW added NetsuiteId to payload
+            'NetsuiteId' => invoice.Netsuite_Id__c,
             // Using List of Map, Object created from Invoice Lines
             'LineItems' => lineItems
         };
 
         // Send payload using /invoice as endpoint
         System.debug('Invoice Payload: ' + payload);
-        sendPayload('/invoice', payload);
+        // sendPayload('/invoice', payload);
+        // NEW Using 4 param method of sendPayload so NSId gets stamped to Invoice
+        sendPayload('/invoice', payload, invoice.Id, 'Invoice');
     }
 
 }
