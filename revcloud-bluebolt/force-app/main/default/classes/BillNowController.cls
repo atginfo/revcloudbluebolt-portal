@@ -1,4 +1,10 @@
 /**
+  @author            : David Sam
+  @group             : Cognizant
+  @ticket            : CIBGCF-XX
+  @last modified on  : 07-31-2025
+  @last modified by  : Frank Berni
+
  * BillNowController class is responsible for fetching billing schedules related to a specific order.
  * This class provides a method to retrieve billing schedules and their associated order items.
  * 
@@ -16,7 +22,8 @@ public with sharing class BillNowController {
     @AuraEnabled(cacheable=true)
     public static List<Map<String, Object>> getBillingSchedules(Id orderId) {
         List<String> fieldSetFields = FieldSetHelper.getFieldSetFields('BillingSchedule', 'Bill_Now_Field_Set');
-        String query = 'SELECT Id, BillingScheduleNumber, ReferenceEntityItemId';
+        // NEW added ReferenceEntityId to query
+        String query = 'SELECT Id, BillingScheduleNumber, ReferenceEntityItemId, ReferenceEntityId';
         for (String field : fieldSetFields) {
             query += ', ' + field;
         }
@@ -37,6 +44,8 @@ public with sharing class BillNowController {
             scheduleMap.put('Id', schedule.Id);
             scheduleMap.put('BillingScheduleNumber', schedule.BillingScheduleNumber);
             scheduleMap.put('ReferenceEntityItemId', schedule.ReferenceEntityItemId);
+            // NEW added ReferenceEntityId to have reference to Order
+            scheduleMap.put('ReferenceEntityId', schedule.ReferenceEntityId);
             scheduleMap.put('Status', schedule.Status);
             scheduleMap.put('BillDayOfMonth', schedule.BillDayOfMonth);
             // Add other fields from the field set
