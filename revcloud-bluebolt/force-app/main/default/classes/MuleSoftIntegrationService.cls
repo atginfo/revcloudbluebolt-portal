@@ -2,7 +2,7 @@
  * @description       : Prepares payloads for either Account, Product, Order or Invoice and sends to Netsuite (MuleSoft)
  * @author            : Frank Berni
  * @group             : Cognizant
- * @last modified on  : 07-30-2025
+ * @last modified on  : 08-01-2025
  * @last modified by  : Frank Berni
 **/
 public with sharing class MuleSoftIntegrationService {
@@ -139,7 +139,7 @@ public with sharing class MuleSoftIntegrationService {
                 'ProductType' => item.Product2 != null ? item.Product2.Type : null,
                 'ProductFamily' => item.Product2 != null ? item.Product2.Family : null,
                 // NEW Netsuite ProductId added
-                'NetsuiteProductId' => item.Product2 != null ? item.Product2.Netsuite_Id__c : null,
+                'ProductNetsuiteId' => item.Product2 != null ? item.Product2.Netsuite_Id__c : null,
                 'OrderItemType' => item.Order_Item_Type__c,
                 // NEW added more fields missing from mapping
                 'TotalPrice' => item.TotalPrice,
@@ -224,12 +224,13 @@ public with sharing class MuleSoftIntegrationService {
                    BillingAccount.BillingAddress, BillingAccount.BillingCity, BillingAccount.BillingState,
                    BillingAccount.BillingPostalCode, BillingAccount.BillingCountry,
                    BillingAccount.ShippingAddress, BillingAccount.ShippingCity, BillingAccount.ShippingState,
-                   BillingAccount.ShippingPostalCode, BillingAccount.ShippingCountry,
-                   // NEW added Netsuite_Id__c to query
-                   BillToContact.Name, Netsuite_Id__c,
+                   BillingAccount.ShippingPostalCode, BillingAccount.ShippingCountry, 
+                   // NEW added Netsuite_Id__c and Account.NetsuiteId to query
+                   BillToContact.Name, Netsuite_Id__c, Order__c,BillingAccount.Netsuite_Id__c,
                    (SELECT Id, Description, LineAmount, Quantity,
                            Product2.Name, Product2.Family, Product2.Type,
-                           Product2.BasedOnId, Order_Product_del__r.OrderId
+                            // NEW added Order_Product_del__c and Netsuite Id
+                           Product2.BasedOnId, Order_Product_del__c, Order_Product_del__r.OrderId, Product2.Netsuite_Id__c
                     FROM InvoiceLines)
             FROM Invoice
             WHERE Id = :invoiceId
@@ -250,7 +251,11 @@ public with sharing class MuleSoftIntegrationService {
                 'ProductFamily' => line.Product2 != null ? line.Product2.Family : null,
                 'ProductType' => line.Product2 != null ? line.Product2.Type : null,
                 'ProductBasedOnId' => line.Product2 != null ? line.Product2.BasedOnId : null,
-                'OrderId' => line.Order_Product_del__r.OrderId
+                // NEW added ProductNetsuiteId to payload
+                'ProductNetsuiteId' => line.Product2 != null ? line.Product2.Netsuite_Id__c : null,
+                // NEW added OrderProductId to payload and updated with ternary
+                'OrderId' => line.Order_Product_del__c != null ? line.Order_Product_del__r.OrderId : null,
+                'OrderProductId' => line.Order_Product_del__c
             });
         }
 
@@ -264,9 +269,10 @@ public with sharing class MuleSoftIntegrationService {
             'PaymentTerm' => invoice.Payment_Term__c,
             'Subsidiary' => invoice.Subsidiary__c,
             'Description' => invoice.Description,
-            'OrderName' => invoice.Order__r != null ? invoice.Order__r.Order_Name__c : null,
-            'OrderType' => invoice.Order__r != null ? invoice.Order__r.Type : null,
-            'OrderNumber' => invoice.Order__r != null ? invoice.Order__r.OrderNumber : null,
+            // NEW replaced Order__r with Order__c
+            'OrderName' => invoice.Order__c != null ? invoice.Order__r.Order_Name__c : null,
+            'OrderType' => invoice.Order__c != null ? invoice.Order__r.Type : null,
+            'OrderNumber' => invoice.Order__c != null ? invoice.Order__r.OrderNumber : null,
             'BillingAccountName' => invoice.BillingAccount != null ? invoice.BillingAccount.Name : null,
             'BillingAccountPhone' => invoice.BillingAccount != null ? invoice.BillingAccount.Phone : null,
             'BillingAddress' => invoice.BillingAccount != null ? invoice.BillingAccount.BillingAddress : null,
@@ -282,6 +288,8 @@ public with sharing class MuleSoftIntegrationService {
             'BillToContactName' => invoice.BillToContact != null ? invoice.BillToContact.Name : null,
             // NEW added NetsuiteId to payload
             'NetsuiteId' => invoice.Netsuite_Id__c,
+            // NEW Account NetsuiteId
+            'AccountNetsuiteId' => invoice.BillingAccount != null ? invoice.BillingAccount.Netsuite_Id__c : null,
             // Using List of Map, Object created from Invoice Lines
             'LineItems' => lineItems
         };
