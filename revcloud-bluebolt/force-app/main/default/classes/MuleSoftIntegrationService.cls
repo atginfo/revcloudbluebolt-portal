@@ -229,8 +229,9 @@ public with sharing class MuleSoftIntegrationService {
                    BillToContact.Name, Netsuite_Id__c, Order__c,BillingAccount.Netsuite_Id__c,
                    (SELECT Id, Description, LineAmount, Quantity,
                            Product2.Name, Product2.Family, Product2.Type,
-                            // NEW added Order_Product_del__c and Netsuite Id
-                           Product2.BasedOnId, Order_Product_del__c, Order_Product_del__r.OrderId, Product2.Netsuite_Id__c
+                            // NEW added Order_Product_del__c, Order_Product_del__r.OrderItemNumber and Netsuite Id
+                           Product2.BasedOnId, Order_Product_del__c, Order_Product_del__r.OrderId, Order_Product_del__r.OrderItemNumber,
+                           Product2.Netsuite_Id__c
                     FROM InvoiceLines)
             FROM Invoice
             WHERE Id = :invoiceId
@@ -253,9 +254,10 @@ public with sharing class MuleSoftIntegrationService {
                 'ProductBasedOnId' => line.Product2 != null ? line.Product2.BasedOnId : null,
                 // NEW added ProductNetsuiteId to payload
                 'ProductNetsuiteId' => line.Product2 != null ? line.Product2.Netsuite_Id__c : null,
-                // NEW added OrderProductId to payload and updated with ternary
+                // NEW added OrderProductId and OrderItemNumber to payload and updated with ternary
                 'OrderId' => line.Order_Product_del__c != null ? line.Order_Product_del__r.OrderId : null,
-                'OrderProductId' => line.Order_Product_del__c
+                'OrderItemNumber' => line.Order_Product_del__c != null ? line.Order_Product_del__r.OrderItemNumber : null,
+                'OrderItemId' => line.Order_Product_del__c
             });
         }
 
