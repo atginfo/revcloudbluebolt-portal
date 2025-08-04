@@ -2,7 +2,7 @@
  * @description       : Prepares payloads for either Account, Product, Order or Invoice and sends to Netsuite (MuleSoft)
  * @author            : Frank Berni
  * @group             : Cognizant
- * @last modified on  : 08-01-2025
+ * @last modified on  : 08-04-2025
  * @last modified by  : Frank Berni
 **/
 public with sharing class MuleSoftIntegrationService {
@@ -225,8 +225,8 @@ public with sharing class MuleSoftIntegrationService {
                    BillingAccount.BillingPostalCode, BillingAccount.BillingCountry,
                    BillingAccount.ShippingAddress, BillingAccount.ShippingCity, BillingAccount.ShippingState,
                    BillingAccount.ShippingPostalCode, BillingAccount.ShippingCountry, 
-                   // NEW added Netsuite_Id__c and Account.NetsuiteId to query
-                   BillToContact.Name, Netsuite_Id__c, Order__c,BillingAccount.Netsuite_Id__c,
+                   // NEW added Netsuite_Id__c, Account.NetsuiteId, Order__r.Netsuite_Id__c to query
+                   BillToContact.Name, Netsuite_Id__c, Order__c, BillingAccount.Netsuite_Id__c, Order__r.Netsuite_Id__c,
                    (SELECT Id, Description, LineAmount, Quantity,
                            Product2.Name, Product2.Family, Product2.Type,
                             // NEW added Order_Product_del__c, Order_Product_del__r.OrderItemNumber and Netsuite Id
@@ -275,6 +275,8 @@ public with sharing class MuleSoftIntegrationService {
             'OrderName' => invoice.Order__c != null ? invoice.Order__r.Order_Name__c : null,
             'OrderType' => invoice.Order__c != null ? invoice.Order__r.Type : null,
             'OrderNumber' => invoice.Order__c != null ? invoice.Order__r.OrderNumber : null,
+            // NEW added OrderNetsuiteId to payload
+            'OrderNetsuiteId' => invoice.Order__c != null ? invoice.Order__r.Netsuite_Id__c : null,
             'BillingAccountName' => invoice.BillingAccount != null ? invoice.BillingAccount.Name : null,
             'BillingAccountPhone' => invoice.BillingAccount != null ? invoice.BillingAccount.Phone : null,
             'BillingAddress' => invoice.BillingAccount != null ? invoice.BillingAccount.BillingAddress : null,
