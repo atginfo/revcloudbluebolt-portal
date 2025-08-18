@@ -1,0 +1,30 @@
+<!--
+  @description       : Retrieves and displays a list of invoices or documents associated with the user's account.
+  @author            : David Sam
+  @group             : Cognizant
+  @ticket            : CIBGCF-XX
+  @last modified on  : 06-25-2025
+  @last modified by  : David Sam
+-->
+<template>
+    
+<!-- <template if:true={invoiceDocuments}>
+    <lightning-card title="My Invoices/Documents">
+        <lightning-datatable
+            key-field="Id"
+            data={invoiceDocuments}
+            columns={invoiceColumns}>
+        </lightning-datatable>
+    </lightning-card>
+</template>
+<template if:true={invoiceDocumentsError}>
+    <div class="slds-text-color_error">Error loading documents: {invoiceDocumentsError}</div>
+</template> -->
+
+<lightning-datatable
+    key-field="Id"
+    data={quoteDocuments}
+    columns={quoteColumns}>
+</lightning-datatable>
+
+</template>

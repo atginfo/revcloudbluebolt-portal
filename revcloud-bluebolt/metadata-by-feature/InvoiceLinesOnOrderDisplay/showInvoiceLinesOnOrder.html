@@ -1,0 +1,28 @@
+<template>
+    <div class="slds-card">
+        <header class="slds-card__header slds-grid">
+            <div class="slds-media slds-media_center slds-has-flexi-truncate">
+                <div class="slds-media__figure">
+                    <lightning-icon icon-name="custom:custom63" alternative-text="Invoice Lines"></lightning-icon>
+                </div>
+                <div class="slds-media__body">
+                    <h2 class="slds-card__header-title">
+                        <span>Invoice Lines</span>
+                    </h2>
+                </div>
+            </div>
+        </header>
+        <div class="slds-card__body slds-card__body_inner">
+            <template if:true={isLoading}>
+                <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+            </template>
+            <template if:false={isLoading}>
+                <lightning-datatable
+                    key-field="Id"
+                    data={invoiceLines}
+                    columns={columns}>
+                </lightning-datatable>
+            </template>
+        </div>
+    </div>
+</template>
