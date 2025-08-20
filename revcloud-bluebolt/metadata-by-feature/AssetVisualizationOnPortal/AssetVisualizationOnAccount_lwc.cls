@@ -3,8 +3,8 @@
  * @author            : David Sam
  * @group             : Cognizant
  * @ticket            : CIBGCF-XX
- * @last modified on  : 06-09-2025
- * @last modified by  : David Sam
+ * @last modified on  : 08-20-2025
+ * @last modified by  : Frank Berni
 **/
 public with sharing class AssetVisualizationOnAccount_lwc {
 
@@ -31,7 +31,7 @@ public with sharing class AssetVisualizationOnAccount_lwc {
 
         return [SELECT Count(Id) Id,Asset.Name, Sum(Asset.CurrentMrr) summedAmount
                 FROM AssetStatePeriod
-                WHERE Asset.AccountId =:accountId
+                WHERE Asset.AccountId = :accountId
                 AND Mrr  > 0
                 GROUP BY Asset.Name
                 LIMIT 3
@@ -68,96 +68,6 @@ public with sharing class AssetVisualizationOnAccount_lwc {
         }
     }
 
-    // public static List<AssetStatePeriod> draftDateRangeSort (Id theCurrentUserId) {
-    //     try {
-    //         if(theCurrentUserId == null){
-    //             theCurrentUserId = userinfo.getUserId();
-
-    //         }
-
-            
-    //         List<AssetStatePeriod> accountsActiveAssets = [
-    //             SELECT Id, Amount, Mrr, Quantity, StartDate, EndDate, Asset.AccountId,Asset.Name,
-    //                 Asset.Account.Name
-    //             FROM AssetStatePeriod
-    //             WHERE Asset.AccountId = :AccountId
-    //             AND Mrr >0
-    //             ORDER BY StartDate, EndDate ASC];
-            
-    //         Date graphStartDate = accountsActiveAssets[0].StartDate;
-    //         Date graphTempEndDate = accountsActiveAssets[accountsActiveAssets.size() - 1].EndDate;
-    //         Date graphTempStartDate = '';
-    //         Date graphTempEndDate = '';
-    //         Date graphEndDate = '';
-
-    //         Set<AssetStatePeriod> sameStartDate = new Set<AssetStatePeriod>();
-    //         List<String> dateRanges = new List<String>();
-    //         Map<String,List<String>> mapOfDates = new Map<String,List<String>>();
-
-    //         integer i  = 0;
-    //         for (AssetStatePeriod asp : accountsActiveAssets) {
-
-    //             graphStartDate = asp.StartDate;
-    //             for (AssetStatePeriod aspDesc : [SELECT Id, Amount, Mrr, Quantity, StartDate, EndDate, Asset.AccountId,Asset.Name,
-    //                     Asset.Account.Name
-    //                 FROM AssetStatePeriod
-    //                 WHERE Asset.AccountId = :AccountId
-    //                 AND Mrr >0
-    //                 ORDER BY EndDate DESC]) {
-                        
-    //                 if (asp.id != aspDesc.id) { // check to make sure we are not running against the same record
-    //                     //assign the end date from the order by
-    //                     if (graphEndDate == '') {
-    //                         graphEndDate = aspDesc.EndDate;
-    //                     }
-    //                     List<String> dateRanges = new List<String>();
-
-    //                     // if the start date of the first asset is the start date of the latest end date
-    //                     if ((graphEndDate == aspDesc.EndDate) && (asp.StartDate.isSameDay(aspDesc.StartDate))) {
-    //                         if (asp.EndDate.isGreaterThan(aspDesc.EndDate)) {
-    //                             graphTempEndDate = aspDesc.EndDate;
-    //                             dateRanges.add(asp.StartDate, asp.Mrr + aspDesc.Mrr, aspDesc.EndDate);
-    //                             mapOfDates.put('range'+i, dateRanges);
-    //                         }else{
-    //                             graphTempEndDate = asp.EndDate;
-    //                             dateRanges.add(asp.StartDate, asp.Mrr + aspDesc.Mrr, aspDesc.EndDate);
-    //                             mapOfDates.put('range'+i, dateRanges);
-    //                         }
-    //                     } 
-    //                     else if ((graphEndDate != aspDesc.EndDate) && (asp.StartDate.isSameDay(aspDesc.StartDate))) {
-    //                         if (asp.EndDate.isGreaterThan(aspDesc.EndDate)) {
-    //                             graphTempEndDate = aspDesc.EndDate;
-    //                             dateRanges.add(asp.StartDate, asp.Mrr + aspDesc.Mrr, aspDesc.EndDate);
-    //                             mapOfDates.put('range'+i, dateRanges);
-    //                         }else{
-    //                             graphTempEndDate = asp.EndDate;
-    //                             dateRanges.add(asp.StartDate, asp.Mrr + aspDesc.Mrr, aspDesc.EndDate);
-    //                             mapOfDates.put('range'+i, dateRanges);
-    //                         }
-    //                     }
-    //                     else ((graphEndDate != aspDesc.EndDate) && (!asp.StartDate.isSameDay(aspDesc.StartDate))) {
-    //                         if (asp.EndDate.isGreaterThan(aspDesc.EndDate) && asp.StartDate.isLessThan(aspDesc.StartDate)) {
-    //                             graphTempEndDate = aspDesc.EndDate;
-    //                             dateRanges.add(aspDesc.StartDate, asp.Mrr + aspDesc.Mrr, aspDesc.EndDate);
-    //                             mapOfDates.put('range'+i, dateRanges);
-    //                         }else{
-    //                             graphTempEndDate = asp.EndDate;
-    //                             dateRanges.add(asp.StartDate, asp.Mrr + aspDesc.Mrr, aspDesc.EndDate);
-    //                             mapOfDates.put('range'+i, dateRanges);
-    //                         }
-    //                     }
-    //                 }
-                
-    //             }
-    //             i++;
-    //         }
-            
-    //     } catch (Exception e) {
-    //         throw new AuraHandledException(e.getMessage());
-    //     }
-    // }
-
-
     /**
     * @description: Pull Data for showing a list of related Assets and standalones on the portal.
     * @author David Sam | 05-12-2025 
@@ -166,162 +76,128 @@ public with sharing class AssetVisualizationOnAccount_lwc {
     **/
     @AuraEnabled(cacheable=true)
     public static Map<Id,List<AssetStatePeriod>> getAssetAndRelatedAssets (Id theCurrentUserId) {
-        if(theCurrentUserId == null){
-            theCurrentUserId = userinfo.getUserId();
+        if (theCurrentUserId == null) {
+            theCurrentUserId = UserInfo.getUserId();
         }
 
-        List<User> users = [SELECT Contact.AccountId FROM User WHERE Id =:theCurrentUserId LIMIT 1];
-        Id accountId = users[0].Contact.AccountId;          // Grab the account Id from the current User
+        // Resolve current user's account
+        Id accountId = [
+            SELECT Contact.AccountId
+            FROM User
+            WHERE Id = :theCurrentUserId
+            LIMIT 1
+        ].Contact.AccountId;
 
-        // Map to pass to the LWC
         Map<Id,List<AssetStatePeriod>> asset2RelatedAssetIds = new Map<Id,List<AssetStatePeriod>>();
-        
-        Set<Id> childAssetIdSet = new Set<Id>();
-        Set<Id> parentAssetIdSet = new Set<Id>();
 
-        // Querry all assets (parent assets = AssetId. child assets = RelatedAssetId))
+        // Relationships (parent = AssetId, child = RelatedAssetId)
         List<AssetRelationship> assetIds = [
             SELECT AssetId, RelatedAssetId
-            FROM AssetRelationship 
-            WHERE Asset.AccountId =:accountID
+            FROM AssetRelationship
+            WHERE Asset.AccountId = :accountId
             ORDER BY AssetId ASC
         ];
 
-        // Querry all needed columns to be shown on the table on the LWC
+        // All ASPs we’ll need
         List<AssetStatePeriod> columnNames = [
-            SELECT ID,Amount, Mrr, Quantity, StartDate, EndDate, Asset.Name,
-                AssetId,Asset.Billing_Frequency2__c
+            SELECT Id, Amount, Mrr, Quantity, StartDate, EndDate, AssetId,
+                Asset.Name, Asset.Billing_Frequency2__c
             FROM AssetStatePeriod
-            WHERE Asset.AccountId = :AccountId
-		    ORDER BY AssetId ASC
-        ];
-
-        // Use the list childAssetIdSet for filtering the standalone assets later.
-        for (AssetRelationship theAsset: assetIds) {
-            childAssetIdSet.add(theAsset.RelatedAssetId); // child of bundles
-            parentAssetIdSet.add(theAsset.AssetId); // parents of bundles
-        }
-
-        AssetStatePeriod tmpASP ;
-        //List<AssetStatePeriod> assetRelationshipList = new List<AssetStatePeriod>();
-
-        for (AssetRelationship parentAsset : assetIds) {
-           List<AssetStatePeriod> assetRelationshipList = new List<AssetStatePeriod>();
-            for (AssetStatePeriod asp: columnNames) {
-                // We will see duplicates assets here because an asset can have multiple state periods.
-                if (asp.AssetId == parentAsset.RelatedAssetId ) {    
-                    assetRelationshipList.add(asp);
-                    tmpASP = ASP;
-                    
-                }
-                else if ((!childAssetIdSet.contains(asp.AssetID)) &&
-                    !parentAssetIdSet.contains(asp.AssetID)){ 
-                    
-                    // It is a standalone, let's add it to the map with its own Asset Id and clumn values
-                    assetRelationshipList.add(asp);
-               
-                    // Standalones: If the key exist, append to its values. Else, add the key/pair
-                    if (asset2RelatedAssetIds.containsKey(asp.AssetId)){
-                        asset2RelatedAssetIds.get(asp.AssetId).add(asp);
-                    }else {
-                        asset2RelatedAssetIds.put(asp.AssetId, assetRelationshipList);
-                    }
-                    
-                    assetRelationshipList.clear();
-                }
-            }
-
-            // Bundles: If the key exist, append to its values. Else, add the key/pair
-            if (asset2RelatedAssetIds.containsKey(parentAsset.AssetID) &&
-            !asset2RelatedAssetIds.get(parentAsset.AssetID).contains(tmpASP)){
-                asset2RelatedAssetIds.get(parentAsset.AssetID).add(tmpASP);
-
-            }else {
-                asset2RelatedAssetIds.put(parentAsset.AssetID,assetRelationshipList);
-            }
-            assetRelationshipList.clear();
-            tmpASP = null;
-        }
-    	System.debug('asset2RelatedAssetIds: ' + asset2RelatedAssetIds);
-        System.debug('asset2RelatedAssetIds.size: ' + asset2RelatedAssetIds.size());
-        // formattedList(asset2RelatedAssetIds);
-        System.debug('@@@@ passed function call: ' );
-        
-    	return asset2RelatedAssetIds;
-    }
-
-    @AuraEnabled (cacheable=true)
-    public static Map<String,List<Asset>> getAssets (){
-
-        // Querry all assets (parent assets = AssetId. child assets = RelatedAssetId))
-        List<AssetRelationship> assetIds = [
-            SELECT AssetId, RelatedAssetId
-            FROM AssetRelationship 
-            WHERE Asset.AccountId ='001Kj00002TV6kLIAT'
+            WHERE Asset.AccountId = :accountId
             ORDER BY AssetId ASC
         ];
 
-        Set<Id> childAssetIdSet = new Set<Id>();
+        // Build quick lookup sets to identify parents/children
+        Set<Id> childAssetIdSet  = new Set<Id>();
         Set<Id> parentAssetIdSet = new Set<Id>();
-        List<Asset> standaloneAssets = new List<Asset>();
-        List<Asset> bundledAssets = new List<Asset>();
-        Map<String,List<Asset>> assetMap = new Map<String,List<Asset>>();
-       // List<Asset> formattedList = new List<Asset>();
-     
-
-        // Use the list childAssetIdSet for filtering the standalone assets later.
-        for (AssetRelationship theAsset: assetIds) {
-            childAssetIdSet.add(theAsset.RelatedAssetId); // child of bundles
-            parentAssetIdSet.add(theAsset.AssetId); // parents of bundles
+        for (AssetRelationship ar : assetIds) {
+            childAssetIdSet.add(ar.RelatedAssetId);
+            parentAssetIdSet.add(ar.AssetId);
         }
 
-        System.debug('$$ childAssetIdSet.Size: ' + childAssetIdSet.size() + ' -- ' +'parentAssetIdSet.size: ' + parentAssetIdSet.size());
-
-
-        List<Asset> theAssetList = [SELECT Id,Name,Billing_Frequency2__c,
-                    (
-                        SELECT RelatedAssetId
-                        FROM RelatedAssets
-                    ),
-                    (
-                        SELECT StartDate,EndDate, Mrr, Quantity, Asset.Name
-                        FROM AssetStatePeriods
-                    )
-                FROM Asset
-                WHERE AccountId = '001Kj00002TV6kLIAT'];
-
-        System.debug('$$ childAssetIdSet.Size: ' + childAssetIdSet.size() + ' -- ' +'parentAssetIdSet.size: ' + parentAssetIdSet.size() + ' -- ' +
-                    'theAssetList.size: ' + theAssetList.size());
-        Integer i = 0;
-        List<Asset> assetAssetIds = new List<Asset>();
-        ID tempAssetID = null;
-        for (ID ARP: childAssetIdSet) {
-
-            //standaloneAssets = new List<Asset>();
-            // bundledAssets = new List<Asset>();
-
-            for (Asset AST: theAssetList) {
-                tempAssetID = AST.Id;
-                if (AST.Id == ARP ) {
-                    System.debug('$$ ARP: ' + ARP + ' -- ' + 'AST.Id: ' + AST.Id);
-                    System.debug('$$ bundledAssets: ' + bundledAssets);
-                    bundledAssets.add(AST);
-                
+        // 1) Bundle children under their parent
+        for (AssetRelationship parentAsset : assetIds) {
+            List<AssetStatePeriod> childAsps = new List<AssetStatePeriod>();
+            for (AssetStatePeriod asp : columnNames) {
+                if (asp.AssetId == parentAsset.RelatedAssetId) {
+                    childAsps.add(asp); // collect all ASPs for this child asset
                 }
-                else if (AST.Id != ARP && !childAssetIdSet.contains(tempAssetID) && !parentAssetIdSet.contains(tempAssetID)) {
-                     System.debug('$$ ARP: ' + ARP + ' -- ' + 'AST.Id: ' + AST.Id);
-                    standaloneAssets.add(AST);
-                }
-                
             }
-            System.debug('$$ bundledAssets.Size: ' + bundledAssets.size() + ' -- ' +'standaloneAssets.size: ' + standaloneAssets.size() );
+            if (!childAsps.isEmpty()) {
+                if (asset2RelatedAssetIds.containsKey(parentAsset.AssetId)) {
+                    asset2RelatedAssetIds.get(parentAsset.AssetId).addAll(childAsps);
+                } else {
+                    asset2RelatedAssetIds.put(parentAsset.AssetId, new List<AssetStatePeriod>(childAsps));
+                }
+            }
         }
-        assetMap.put('standalone', standaloneAssets);
-        assetMap.put('bundled', bundledAssets);
-        System.debug('$$ assetMap.Size: ' + assetMap.size() + ' -- ' +'assetMap: ' + assetMap);
-        return assetMap;
 
+        // 2) Standalones = not a parent and not a child
+        for (AssetStatePeriod asp : columnNames) {
+            if (!childAssetIdSet.contains(asp.AssetId) && !parentAssetIdSet.contains(asp.AssetId)) {
+                if (asset2RelatedAssetIds.containsKey(asp.AssetId)) {
+                    asset2RelatedAssetIds.get(asp.AssetId).add(asp);
+                } else {
+                    asset2RelatedAssetIds.put(asp.AssetId, new List<AssetStatePeriod>{ asp });
+                }
+            }
+        }
+
+        return asset2RelatedAssetIds;
     }
+
+    @AuraEnabled(cacheable=true)
+    public static Map<String,List<Asset>> getAssets () {
+        // Resolve current user's account
+        Id accountId = [
+            SELECT Contact.AccountId
+            FROM User
+            WHERE Id = :UserInfo.getUserId()
+            LIMIT 1
+        ].Contact.AccountId;
+
+        // Relationships for this account
+        List<AssetRelationship> assetIds = [
+            SELECT AssetId, RelatedAssetId
+            FROM AssetRelationship
+            WHERE Asset.AccountId = :accountId
+            ORDER BY AssetId ASC
+        ];
+
+        Set<Id> childAssetIdSet  = new Set<Id>();
+        Set<Id> parentAssetIdSet = new Set<Id>();
+        for (AssetRelationship ar : assetIds) {
+            childAssetIdSet.add(ar.RelatedAssetId);
+            parentAssetIdSet.add(ar.AssetId);
+        }
+
+        // All assets for the account (with related data)
+        List<Asset> theAssetList = [
+            SELECT Id, Name, Billing_Frequency2__c,
+                (SELECT RelatedAssetId FROM RelatedAssets),
+                (SELECT StartDate, EndDate, Mrr, Quantity, Asset.Name FROM AssetStatePeriods)
+            FROM Asset
+            WHERE AccountId = :accountId
+        ];
+
+        List<Asset> standalone = new List<Asset>();
+        List<Asset> bundled    = new List<Asset>();
+
+        for (Asset a : theAssetList) {
+            if (childAssetIdSet.contains(a.Id)) {
+                bundled.add(a);                  // a is a child in some bundle
+            } else if (!parentAssetIdSet.contains(a.Id)) {
+                standalone.add(a);               // neither parent nor child → standalone
+            }
+            // (If you want to include explicit parents themselves somewhere, add another bucket.)
+        }
+
+        return new Map<String, List<Asset>>{
+            'standalone' => standalone,
+            'bundled'    => bundled
+        };
+    }
+
 
      @AuraEnabled(cacheable=true)
     public static List<Asset> getAssetAndReletionships (Id theCurrentUserId, date validityDate){
@@ -352,94 +228,5 @@ public with sharing class AssetVisualizationOnAccount_lwc {
                 FROM Asset
                 WHERE AccountId =:accountId]; // '001Kj00002TV6kLIAT'];
     }
-
-    // public static List<Asset> orderedAssets(List<Asset> assets) {
-    //     Set<ID> assetIds = [SELECT AssetId FROM Asset WHERE AccountId = '001Kj00002TV6kLIAT'];
-    //     List<Asset> theAssetList = [[SELECT Id,Name,Billing_Frequency2__c,
-    //                 (
-    //                     SELECT AssetId, RelatedAssetId
-    //                     FROM RelatedAssets
-    //                 ),
-    //                 (
-    //                     SELECT Id, EndDate, Mrr, Quantity, StartDate,Asset.Name
-    //                     FROM AssetStatePeriods
-    //                 )
-    //             FROM Asset
-    //             WHERE AccountId = '001Kj00002TV6kLIAT']];
-    //     System.debug('AssetIds: ' + assetId);
-    //     List<Asset> orderedAssets = new List<Asset>();
-
-    //     for(ID assetId : assetIds) {
-    //         for(Asset key: assets) {
-    //             System.debug('key: ' + key);
-    //             System.debug('key.Id: ' + key.Id);
-    //             if(key.Id == id) {
-    //                 orderedAssets.add(key);
-    //             }
-    //         }
-    //     }
-        
-    //     return orderedAssets;
-    // }
-
-    // public Static List<Asset> formattedList(Map<Id,List<AssetStatePeriod>> relatedAssetMap) {
-    //     List<Asset> formattedList = new List<Asset>();
-    //     List<List<AssetStatePeriod>> listOfLists = new List<List<AssetStatePeriod>>();
-    //     List<AssetStatePeriod> aspList = [SELECT AssetId, EndDate, Mrr, Quantity, StartDate,Asset.Name
-    //                                         FROM AssetStatePeriod
-    //                                         WHERE AssetId IN :relatedAssetMap.keySet()
-    //                                         ORDER BY StartDate ASC];
-
-    //     System.debug('relatedAssetMap: ' + relatedAssetMap);
-    //     for(ID key : relatedAssetMap.keySet()) {
-
-    //         System.debug('@@@ key: ' + key);
-    //         List<AssetStatePeriod> tmpASP = new List<AssetStatePeriod>();
-
-    //          for (AssetStatePeriod ASP : aspList) {
-    //         //     System.debug('@@@ key: ' + key);
-    //             System.debug('@@@ relatedAssetMap.get(): ' + relatedAssetMap.get(key));
-    //             if (key == ASP.AssetId) {
-    //                 System.debug('@@@ ASP.AssetId: ' + ASP.AssetId);
-    //                 tmpASP.add(ASP);
-    //             }
-    //         }
-    //         // listOfLists.add(key, tmpASP);
-    //         // System.debug('@@@ listOfLists: ' + listOfLists);
-            
-        
-    //     }
-    //     return formattedList;
-    
-    // }
-
-
-
-    // public class AssetRelationshipStatePeriodClass{
-
-    //     @AuraEnabled
-    //     public String AssetName;
-    //     @AuraEnabled
-    //     public Date StartDate;
-    //     @AuraEnabled
-    //     public Date EndDate;
-    //     @AuraEnabled
-    //     public Currency Amount;
-    //     @AuraEnabled
-    //     public String BillingFrequency;
-    //     @AuraEnabled
-    //     public Integer Quantity;
-    //     @AuraEnabled
-    //     public Asset ParentAssetId;
-    //     @AuraEnabled
-    //     public Id AssetId;
-
-
-    //     public AssetRelationshipStatePeriodClass(Account account2Use){
-    //         this.AssetRelationship = assetRelationship;
-        
-    //     }
-    // }
-
 
 }
