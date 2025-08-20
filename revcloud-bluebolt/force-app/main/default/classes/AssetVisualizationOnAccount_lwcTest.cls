@@ -36,7 +36,7 @@ private class AssetVisualizationOnAccount_lwcTest {
 
     private static User createInternalOwnerWithRole() {
         UserRole role = [SELECT Id FROM UserRole LIMIT 1];
-        System.assertNotEquals(null, role, 'Org must have at least one UserRole for this test.');
+        Assert.areNotEqual(null, role, 'Org must have at least one UserRole for this test.');
 
         Profile admin = getInternalProfile();
         String uniq = String.valueOf(Crypto.getRandomInteger());
@@ -208,33 +208,33 @@ private class AssetVisualizationOnAccount_lwcTest {
             // --- getAssetAmountDetails(null) ---
             // Should group by Asset.Name and sum MRR from AssetStatePeriod for current user’s Account
             List<AggregateResult> ar = AssetVisualizationOnAccount_lwc.getAssetAmountDetails(null);
-            System.assertNotEquals(null, ar, 'Aggregate list should not be null');
-            System.assert(ar.size() > 0, 'Should have at least one grouped row');
+            Assert.areNotEqual(null, ar, 'Aggregate list should not be null');
+            Assert.isTrue(ar.size() > 0, 'Should have at least one grouped row');
             // Soft check one field exists
             Decimal anySum = (Decimal)ar[0].get('summedAmount');
-            System.assert(anySum >= 0, 'Summed MRR should be non-negative');
+            Assert.isTrue(anySum >= 0, 'Summed MRR should be non-negative');
 
             // --- getAssetsList(null) ---
             // Should return ASP rows for the account with Mrr > 0
             List<AssetStatePeriod> aspList = AssetVisualizationOnAccount_lwc.getAssetsList(null);
-            System.assertEquals(2, aspList.size(), 'Expected two ASP rows (parent & child)');
+            Assert.areEqual(2, aspList.size(), 'Expected two ASP rows (parent & child)');
 
             // --- getAssetAndRelatedAssets(null) ---
             // Map<Id, List<AssetStatePeriod>> keyed by parent or standalone Asset Id
             Map<Id, List<AssetStatePeriod>> relMap = AssetVisualizationOnAccount_lwc.getAssetAndRelatedAssets(null);
-            System.assertNotEquals(null, relMap, 'Map should not be null');
-            System.assert(relMap.containsKey(r.parentAsset.Id) || relMap.containsKey(r.childAsset.Id),
+            Assert.areNotEqual(null, relMap, 'Map should not be null');
+            Assert.isTrue(relMap.containsKey(r.parentAsset.Id) || relMap.containsKey(r.childAsset.Id),
                           'Map should include bundle parent or standalone keys');
             // If parent key is present, its list should include the child ASP (depending on code grouping)
             if (relMap.containsKey(r.parentAsset.Id)) {
-                System.assert(relMap.get(r.parentAsset.Id).size() > 0, 'Parent grouping should have entries');
+                Assert.isTrue(relMap.get(r.parentAsset.Id).size() > 0, 'Parent grouping should have entries');
             }
 
             // --- getAssetAndReletionships(null, null) ---
             // Returns List<Asset> with RelatedAssets and filtered AssetStatePeriods by validity date
             List<Asset> assetsWithRels = AssetVisualizationOnAccount_lwc.getAssetAndReletionships(null, null);
-            System.assertNotEquals(null, assetsWithRels, 'Should not be null');
-            System.assert(assetsWithRels.size() >= 2, 'Should at least return our parent & child assets');
+            Assert.areNotEqual(null, assetsWithRels, 'Should not be null');
+            Assert.isTrue(assetsWithRels.size() >= 2, 'Should at least return our parent & child assets');
 
             Test.stopTest();
         }
@@ -248,10 +248,10 @@ private class AssetVisualizationOnAccount_lwcTest {
         Map<String, List<Asset>> res = AssetVisualizationOnAccount_lwc.getAssets();
         Test.stopTest();
 
-        System.assertNotEquals(null, res, 'Map should not be null even if no data exists');
-        System.assert(res.containsKey('standalone'), 'Map should have "standalone" key');
-        System.assert(res.containsKey('bundled'), 'Map should have "bundled" key');
-        System.assertEquals(0, res.get('standalone').size(), 'No data expected for hard-coded Id');
-        System.assertEquals(0, res.get('bundled').size(), 'No data expected for hard-coded Id');
+        Assert.areNotEqual(null, res, 'Map should not be null even if no data exists');
+        Assert.isTrue(res.containsKey('standalone'), 'Map should have "standalone" key');
+        Assert.isTrue(res.containsKey('bundled'), 'Map should have "bundled" key');
+        Assert.areEqual(0, res.get('standalone').size(), 'No data expected for hard-coded Id');
+        Assert.areEqual(0, res.get('bundled').size(), 'No data expected for hard-coded Id');
     }
 }
