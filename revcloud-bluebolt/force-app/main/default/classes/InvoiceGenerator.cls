@@ -7,7 +7,7 @@
  * InvoiceGenerator.generateInvoices(billingScheduleIds);
  */
 public class InvoiceGenerator {
-    public static String domain = 'chadborerrlmorg-dev-ed.develop';
+    public static String domain = 'revcloudbluebolt-dev-ed.develop';
     public static String apiVersion = 'v62.0'; // Updated API version
     public static String targetDate = '';
     public static String invoiceDate = DateTime.now().format('yyyy-MM-dd');
