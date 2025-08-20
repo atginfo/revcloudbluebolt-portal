@@ -1,6 +1,8 @@
 import { LightningElement, track, wire } from 'lwc';
 import getAccountDetails from '@salesforce/apex/PortalAccountInformation.getAccountDetails';
 import getContactDetails from '@salesforce/apex/PortalAccountInformation.getContactDetails';
+// NEW
+import deleteContact from '@salesforce/apex/PortalAccountInformation.deleteContact';
 import CONTACT_NAME from '@salesforce/schema/Contact.Name';
 import CONTACT_OBJECT from '@salesforce/schema/Contact';
 import FIRSTNAME_FIELD from '@salesforce/schema/Contact.FirstName';
@@ -145,6 +147,7 @@ const columns = [
 
     ];
 
+
 export default class PortalAccountInformation extends LightningElement {
 
     // Contact Display Items
@@ -154,12 +157,29 @@ export default class PortalAccountInformation extends LightningElement {
     ACCOUNTID_FIELD = ACCOUNTID_FIELD; // Used to set the AccountId field in the contact creation modal
 
     // Create contacts items
-    renderModal = false;
+    @track renderModal = false;
+     // NEW new track variables for editting contacts and refreshing contact query
+    @track renderEditModal = false;
+    @track wiredContactResult; // reference to refresh later
+    @track editRecordId;
+
+    // NEW 
+    @track currentAccountId;
+
+
     objectApiName = CONTACT_OBJECT;
     fields = [CONTACT_NAME, EMAIL_FIELD, PHONE_FIELD, FAX_FIELD, DEPARTMENT_FIELD, ACCOUNTID_FIELD]; //FIRSTNAME_FIELD, LASTNAME_FIELD, ACCOUNT_NAME
 
+    // NEW
+    get defaultFieldValues() {
+        return this.currentAccountId ? { AccountId: this.currentAccountId } : {};
+    }
+
+
     @wire(getContactDetails, {})
     getContactDetails(result) {
+        // NEW stores result for apex to be refreshed
+        this.wiredContactResult = result;
         if (result.error) {
             console.error(' There was an error while fetching your account details: ' + JSON.stringify(result.error));
         }
@@ -183,6 +203,19 @@ export default class PortalAccountInformation extends LightningElement {
         }
     }
 
+    // NEW
+    @wire(getAccountDetails)
+    wiredAccount({ error, data }) {
+        if (data) {
+            console.log(data.Name);
+            console.log(data.Id);
+            this.currentAccountId = data.Id;
+        } else if (error) {
+            console.error('Error fetching account details:', error);
+        }
+    }
+
+
     openModal(event) {
         this.renderModal = true;
         console.log('ACCOUNT_NAME: ' + JSON.stringify(ACCOUNT_NAME));
@@ -192,6 +225,10 @@ export default class PortalAccountInformation extends LightningElement {
     }
     closeModal(event) {
         this.renderModal = false;
+    }
+    // NEW - tied to new edit modal
+     closeEditModal() {
+        this.renderEditModal = false;
     }
     handleError(event) {
         console.error('There was an error while creating the contact: ' + JSON.stringify(event.detail.error));
@@ -204,15 +241,66 @@ export default class PortalAccountInformation extends LightningElement {
     }
 
     handleSuccess(event) {
+        // NEW closes modal after success
+        this.renderModal = false;
+
         const tostForSuccessfullContactCreation = new ShowToastEvent({
             title: 'Contact Successfully Created',
-            message: 'Contact ' + event.detail.fields.FirstName.value + ' ' + event.detail.fields.LastName.value + ' with the ID' + 
-                    event.detail.ID + ' has been successfully created.',
+            // NEW updated to not show Id
+            message: 'Contact ' + event.detail.fields.FirstName.value + ' ' + event.detail.fields.LastName.value + ' has been successfully created.',
             variant: 'success'
 
         });
         this.dispatchEvent(tostForSuccessfullContactCreation);
+
+        // NEW Refreshes datatable
+        return refreshApex(this.wiredContactResult);
     }
+
+    // NEW tied to when contact is edited successfully
+    handleEditSuccess() {
+        this.renderEditModal = false;
+        this.dispatchEvent(new ShowToastEvent({
+            title: 'Contact Updated',
+            message: 'Contact updated successfully.',
+            variant: 'success'
+        }));
+        return refreshApex(this.wiredContactResult);
+    }
+
+    // NEW tied to data table row action, determine if editing or deleting contact
+    handleRowAction(event) {
+        const actionName = event.detail.action.name;
+        const row = event.detail.row;
+
+        if (actionName === 'edit_contact') {
+            this.editRecordId = row.Id;
+            this.renderEditModal = true;
+        } else if (actionName === 'delete_contact') {
+            this.deleteContact(row.Id);
+        }
+    }
+
+    // NEW tied to data table row action, deletes contact
+    deleteContact(contactId) {
+        deleteContact({ contactId })
+            .then(() => {
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Success',
+                    message: 'Contact deleted successfully.',
+                    variant: 'success'
+                }));
+                return refreshApex(this.wiredContactResult);
+            })
+            .catch(error => {
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Error deleting contact',
+                    message: error.body.message,
+                    variant: 'error'
+                }));
+            });
+    }
+
 
 //     @wire(getContactDetails, {})
 //     getContactDetails(result) {
