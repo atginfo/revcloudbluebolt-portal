@@ -1,0 +1,50 @@
+<!--
+  @description       : 
+  @author            : David Sam
+  @group             : Cognizant
+  @ticket            : CIBGCF-XX
+  @last modified on  : 04-28-2025
+  @last modified by  : David Sam
+-->
+<template>
+    <div class="slds-card">
+        <header class="slds-card__header slds-grid">
+            <div class="slds-media slds-media_center slds-has-flexi-truncate">
+                <div class="slds-media__figure">
+                    <lightning-icon icon-name="custom:custom17" alternative-text="Billing Schedules"></lightning-icon>
+                </div>
+                <div class="slds-media__body">
+                    <h2 class="slds-card__header-title">
+                        <span>Billing Schedules (Bill Now)</span>
+                    </h2>
+                </div>
+            </div>
+            
+            <div class="slds-size_1-of-4" style="width: 20%">
+                <lightning-input label="Target Date" value={dateInputValue} type="date" date-style="short"
+                        field-level-help="Select the target date for the billing schedule"
+                        variant="label-inline" onchange={handleInputChange} required>
+                </lightning-input>
+            </div>
+            <div class="slds-m-top_xx-small">
+                <div class="slds-no-flex">
+                    <lightning-button label="Bill Now" onclick={handleGenerateInvoices} class="slds-button_neutral" disabled={disableButton}></lightning-button>
+                </div>
+            </div>
+
+        </header>
+        <div class="slds-card__body slds-card__body_inner">
+            <template if:true={isLoading}>
+                <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+            </template>
+            <template if:false={isLoading}>
+                <lightning-datatable
+                    key-field="Id"
+                    data={billingSchedules}
+                    columns={columns}
+                    onrowselection={handleRowSelection}>
+                </lightning-datatable>
+            </template>
+        </div>
+    </div>
+</template>
