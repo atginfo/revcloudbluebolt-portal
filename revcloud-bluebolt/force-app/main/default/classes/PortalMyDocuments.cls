@@ -3,10 +3,12 @@
  * @author            : David Sam
  * @group             : Cognizant
  * @ticket            : CIBGCF-XX
- * @last modified on  : 06-25-2025
- * @last modified by  : David Sam
+ * @last modified on  : 08-21-2025
+ * @last modified by  : Frank Berni
 **/
 public with sharing class PortalMyDocuments {
+
+    @testVisible static Id TEST_ACCOUNT_ID;
     
     @AuraEnabled(cacheable=true)
     public static List<ContentDocumentLink> getMyInvoicesDocuments(Id accountId) {
@@ -31,29 +33,42 @@ public with sharing class PortalMyDocuments {
     @AuraEnabled(cacheable=true)
     public static List<ContentDocumentLink> getAccountQuoteDocuments() {
 
-        ID theCurrentUserId = UserInfo.getUserId();
-        // Date validityDate = Date.today(); // Default to today if not set
-
-        List<User> users = [SELECT Contact.AccountId FROM User WHERE Id =:theCurrentUserId LIMIT 1];
-        Id accountId = users[0].Contact.AccountId;  
-        System.debug('Account Id: ' + accountId); // Debugging line to check the accountId
-        // Get all Quote Ids related to the Account
-        List<Id> quoteIds = new List<Id>();
-        List<Quote> quotes = [SELECT Id FROM Quote WHERE AccountId = :accountId];
-         system.debug('quotes Id for before: ' + quotes); 
-        for (Quote q : quotes) {
-            system.debug('Quote Id for loop before: ' + quoteIds); 
-            quoteIds.add(q.Id);
-            system.debug('Quote Id for loop: ' + quoteIds); 
+        // Resolve accountId
+        Id accountId;
+        if (Test.isRunningTest() && TEST_ACCOUNT_ID != null) {
+            accountId = TEST_ACCOUNT_ID; // test seam
+        } else {
+            Id theCurrentUserId = UserInfo.getUserId();
+            List<User> users = [
+                SELECT Contact.AccountId
+                FROM User
+                WHERE Id = :theCurrentUserId
+                LIMIT 1
+            ];
+            accountId = (users.isEmpty() || users[0].Contact == null)
+                ? null
+                : users[0].Contact.AccountId;
         }
 
-        if (quoteIds.isEmpty()) {
+        if (accountId == null) {
+            return new List<ContentDocumentLink>(); // nothing to do
+        }
+
+        // Get all Quotes on the Account
+        List<Quote> quotes = [SELECT Id FROM Quote WHERE AccountId = :accountId];
+
+        if (quotes.isEmpty()) {
             return new List<ContentDocumentLink>();
         }
-        system.debug('Quote Ids: ' + quoteIds); // Debugging line to check the quoteIds
-        // Query ContentDocumentLinks related to those Quotes
+
+        List<Id> quoteIds = new List<Id>();
+        for (Quote q : quotes) quoteIds.add(q.Id);
+
+        // Return document links on those quotes
         return [
-            SELECT Id, ContentDocumentId, ContentDocument.Title, ContentDocument.FileType, ContentDocument.LatestPublishedVersionId
+            SELECT Id, ContentDocumentId,
+                   ContentDocument.Title, ContentDocument.FileType,
+                   ContentDocument.LatestPublishedVersionId
             FROM ContentDocumentLink
             WHERE LinkedEntityId IN :quoteIds
         ];
