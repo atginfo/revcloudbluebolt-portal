@@ -234,8 +234,12 @@ export default class AssetVisualizationOnAccount extends LightningElement {
                         childIds.add(childId);
                         // Add child asset to parent bundle if both have valid ASPs
                         if (assetMap[parentId] && assetMap[childId]) {
-                            if (!assetMap[parentId]._children.find(c => c.AssetId === assetMap[childId].AssetId)) {
-                                assetMap[parentId]._children.push(assetMap[childId]);
+                            // NEW replaced with Id
+                            const parent = assetMap[parentId];
+                            const child  = assetMap[childId];
+
+                            if (!parent._children.some(c => c.Id === child.Id)) {
+                                parent._children.push(child);
                             }
                         }
                     });
@@ -291,7 +295,8 @@ export default class AssetVisualizationOnAccount extends LightningElement {
 
     handleRowSelection(event) {
         const selectedRows = event.detail.selectedRows;
-        this.selectedAssetId = selectedRows.length > 0 ? selectedRows[0].AssetId : null;
+        // NEW updated to use Id
+        this.selectedAssetId = selectedRows.length > 0 ? selectedRows[0].Id : null;
     }
 
     toggleExpandCollapseAll() {
@@ -482,7 +487,8 @@ export default class AssetVisualizationOnAccount extends LightningElement {
     get gridDataWithHighlight() {
         return (this.gridData || []).map(row => ({
             ...row,
-            _rowClass: row.AssetId === this.recentlyUpdatedAssetId ? 'highlight-row' : ''
+            // NEW updated to use Id
+            _rowClass: row.Id === this.recentlyUpdatedAssetId ? 'highlight-row' : ''
         }));
     }
 
