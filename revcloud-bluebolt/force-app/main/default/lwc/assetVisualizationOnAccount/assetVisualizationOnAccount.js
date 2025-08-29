@@ -3,7 +3,7 @@
  * @author            : David Sam
  * @group             : Cognizant
  * @ticket            : CIBGCF-34
- * @last modified on  : 07-01-2025
+ * @last modified on  : 08-29-2025
  * @last modified by  : Frank Berni
 **/
 import { LightningElement, track, wire, api } from 'lwc';
@@ -24,12 +24,23 @@ import getAssets from '@salesforce/apex/AssetVisualizationOnAccount_lwc.getAsset
 import StartDate from '@salesforce/schema/Contract.StartDate';
 import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
 
+const ACTIONS = [
+    { label: 'Amend', name: 'amend' }
+];
 
+function isDateInRange(date, start, end) {
+    if (!date || !start || !end) return false;
+    const d = new Date(date);
+    return d >= new Date(start) && d <= new Date(end);
+}
 
-  //--------------------------------------------------
+// use spread operator to set the default values or track the values from the javascript or use a function
+// ie: this.object = {...this.setDefaultValues(), "objectPropertyToBeTracked":event.target.value},;
+export default class AssetVisualizationOnAccount extends LightningElement {
 
+    // NEW Moved Columns inside class
     //Build the table header
-    const columns = [
+    @track columns = [
         {
             type: "text",
             fieldName: 'Name',
@@ -107,37 +118,20 @@ import {FlowAttributeChangeEvent} from 'lightning/flowSupport';
         {
             type: 'action',
             typeAttributes: {
-                rowActions: { fieldName: 'rowActions' },
+                // rowActions: { fieldName: 'rowActions' },
+                rowActions: (row, done) => this.getRowActions(row, done),
                 menuAlignment: 'right', // Align the menu to the right
             },
 
         },
-
     ];
-
-    const actions = [
-        { label: 'Amend', name: 'amend' }
-    ];
-
-  
-
-  function isDateInRange(date, start, end) {
-    if (!date || !start || !end) return false;
-    const d = new Date(date);
-    return d >= new Date(start) && d <= new Date(end);
-}
-
-// use spread operator to set the default values or track the values from the javascript or use a function
-//          ie: this.object = {...this.setDefaultValues(), "objectPropertyToBeTracked":event.target.value},;
-export default class AssetVisualizationOnAccount extends LightningElement {
 
     @track isChartJsInitialized = false;
     @track isLoading = false;
     assets;
 
     //Tree-grid Tracked values.
-    @track columns = columns;
-    @track actions = actions;
+    // NEW removed redundant column and track variables
     @track selectedAssetId;
     @track parseData;
     @track expandedRows = [];
@@ -150,16 +144,11 @@ export default class AssetVisualizationOnAccount extends LightningElement {
     flowApiName = "Clone_Amend_Renew_and_Cancel_Assets";
     @track recentlyUpdatedAssetId; // Add this tracked property
     renderFlow = false;
-    
     currentUserId = Id;
-
     wiredAssetsResult;
-    
     @track gridData = [];
-
-    //===========================================================
     @track expandCollapseLabel = 'Expand All';
-    // ...existing code...
+
 
     // Wire method with parameters
    @wire(getAssetAndReletionships, { userId: '$currentUserId', assetValidityDate: '$validityDate' })
@@ -321,7 +310,6 @@ export default class AssetVisualizationOnAccount extends LightningElement {
         const isFullyExpanded = this.expandedRows.length === allKeys.length && allKeys.every(id => this.expandedRows.includes(id));
         this.expandedRows = isFullyExpanded ? [] : allKeys;
         this.expandCollapseLabel = isFullyExpanded ? 'Expand All' : 'Collapse All';
-
     }
 
     doSorting(event) {
@@ -360,15 +348,10 @@ export default class AssetVisualizationOnAccount extends LightningElement {
         this.gridData = parseData;
     }
 
-    getRowActions(row, doneCallback) {
-        console.log('getRowActions called for row: ' );
+    // NEW Updated to handle actions for each row not just parent Assets
+    getRowActions(row, done) {
         console.log('getRowActions called for row: ' + JSON.stringify(row));
-        const actions = [
-            { 
-                label: 'Amend', name: 'amend'
-            }
-        ];
-        doneCallback(actions);
+        done(ACTIONS);
     }
 
     @api
@@ -454,10 +437,7 @@ export default class AssetVisualizationOnAccount extends LightningElement {
                         mode: 'dismissable'
                     })
                 );
-            }, 100); // Small delay to ensure modal is closed
-            
-            
-            
+            }, 100); // Small delay to ensure modal is closed  
         }
     }
 
@@ -494,8 +474,5 @@ export default class AssetVisualizationOnAccount extends LightningElement {
 
     rowClass(row) {
         return row._rowClass;
-    }
-
-
-    
+    }   
 }
